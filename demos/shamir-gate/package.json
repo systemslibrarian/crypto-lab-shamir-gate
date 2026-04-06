@@ -1,0 +1,29 @@
+{
+  "name": "shamir-gate",
+  "version": "1.0.0",
+  "description": "Browser-based Shamir's Secret Sharing (SSS) cryptographic demo",
+  "main": "dist/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest"
+  },
+  "keywords": [
+    "shamir",
+    "secret-sharing",
+    "cryptography",
+    "threshold-cryptography",
+    "finite-field",
+    "gf256"
+  ],
+  "author": "Crypto Compare Portfolio",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.8",
+    "vitest": "^1.0.4"
+  }
+}

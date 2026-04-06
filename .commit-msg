@@ -1,0 +1,14 @@
+feat: implement shamir-gate demo with accessibility and mobile fixes
+
+- GF(2^8) arithmetic with AES polynomial (0x11b)
+- Polynomial evaluation (Horner) and Lagrange interpolation
+- Shamir SSS split/reconstruct for single and multi-byte secrets
+- AES-256-GCM message protection with key splitting
+- Information-theoretic security proof
+- 5-tab UI: Gate, Visualizer, Security Proof, Uses, Attribution
+- Canvas 2D polynomial curve visualization
+- ARIA roles/properties, keyboard navigation, skip-link
+- Screen-reader labels, aria-live regions, focus-visible styles
+- Mobile responsive: 480px/768px/1024px breakpoints
+- prefers-reduced-motion, enhanced touch targets
+- GitHub Pages deployment workflow
