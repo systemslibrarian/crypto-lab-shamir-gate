@@ -155,4 +155,4 @@ MIT
 
 **Inventor:** Adi Shamir, Weizmann Institute of Science, Israel (1979)
 
-**Implementation:** Educational demo for crypto-compare portfolio showcasing threshold cryptography foundations.
+**Implementation:** Educational demo for crypto-lab portfolio showcasing threshold cryptography foundations.
