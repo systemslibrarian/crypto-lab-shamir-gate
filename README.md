@@ -1,103 +1,39 @@
 # crypto-lab-shamir-gate
 
-Interactive Shamir's Secret Sharing (SSS) cryptographic demonstration.
+## What It Is
 
-**Location:** `demos/shamir-gate/`
+Shamir-Gate demonstrates **Shamir's Secret Sharing (SSS)**, a threshold cryptography scheme invented by Adi Shamir in 1979. The implementation splits secrets into shares using polynomial interpolation over the finite field **GF(2⁸)** with the AES irreducible polynomial (0x11b), then reconstructs them via Lagrange interpolation. SSS provides **information-theoretic security** — with fewer than k shares, every possible secret is equally likely regardless of computational power. The demo also pairs SSS with **AES-256-GCM** (via the Web Crypto API) to show the canonical pattern of encrypting a message, then splitting the encryption key into threshold shares.
 
-## Quick Start
+## When to Use It
+
+- **Distributed key custody** — Split a master encryption key across multiple parties so no single person can decrypt alone; fits HSM key ceremonies and organizational key escrow.
+- **Backup seed phrases** — Store wallet recovery seeds as k-of-n shares in separate geographic locations so that loss of one share does not compromise the seed.
+- **Multi-party authorization** — Require a quorum (e.g. 3-of-5 board members) to approve a sensitive action; the secret is only recoverable when enough parties cooperate.
+- **Threshold file encryption** — Combine SSS key-splitting with symmetric encryption (AES-256-GCM) to protect files at rest while distributing trust.
+- **When NOT to use it** — SSS alone does not provide verifiability; if you need shareholders to prove they hold valid shares without revealing them, use Verifiable Secret Sharing (VSS) or a threshold signature scheme like FROST instead.
+
+## Live Demo
+
+[**systemslibrarian.github.io/crypto-lab-shamir-gate/**](https://systemslibrarian.github.io/crypto-lab-shamir-gate/)
+
+The demo provides five interactive tabs. In **The Gate** tab you configure a k-of-n threshold with sliders (k from 2–6, n from 2–10), split a text secret into share strings, and reconstruct it from any k shares — including an AES-256-GCM encrypt/decrypt workflow that splits the encryption key. The **Polynomial Visualizer** renders the real GF(2⁸) curve on canvas, revealing share points one at a time, and the **Security Proof** tab lets you enumerate all 256 consistent secrets for fewer-than-k shares.
+
+## How to Run Locally
 
 ```bash
-cd demos/shamir-gate
+git clone https://github.com/systemslibrarian/crypto-lab-shamir-gate.git
+cd crypto-lab-shamir-gate/demos/shamir-gate
 npm install
 npm run dev
 ```
 
-Browser opens to http://localhost:5173
+## Part of the Crypto-Lab Suite
 
-## Overview
+This demo is one module in the **Crypto-Lab** collection at [systemslibrarian.github.io/crypto-lab/](https://systemslibrarian.github.io/crypto-lab/).
 
-shamir-gate demonstrates **Shamir's Secret Sharing**, the threshold cryptography scheme invented by **Adi Shamir** in **1979**. The demo visualizes the pure mathematics:
+---
 
-- A **secret is the y-intercept** of a random polynomial over GF(2⁸)
-- **Shares are points on the curve** (x, f(x))
-- **Any k shares uniquely recover** the polynomial and secret
-- **Fewer than k shares reveal nothing** — information-theoretically proven perfect secrecy
-
-## Features
-
-1. **The Gate** — Vault door UI for secret splitting and reconstruction
-2. **Polynomial Visualizer** — Real curve rendering showing how shares constrain the polynomial
-3. **Security Proof** — Interactive proof that k-1 shares hide the secret perfectly
-4. **Message Protection** — AES-256-GCM encryption + Shamir SSS key splitting
-5. **Real-world Applications** — HSM, Bitcoin, Signal, nuclear command
-6. **Adi Shamir Attribution** — Historical context and original paper
-
-## Technical Stack
-
-| Component | Implementation |
-|---|---|
-| Finite Field | GF(2⁸) with AES polynomial (0x11b) |
-| Arithmetic | Vanilla TypeScript (addition, multiplication, inversion) |
-| Polynomial | Horner's method evaluation |
-| Interpolation | Lagrange basis polynomials with finite field division |
-| Encryption | Web Crypto API: AES-256-GCM |
-| Visualization | Canvas 2D with real polynomial curve |
-| UI | Vanilla TypeScript, no frameworks |
-
-## All 6 Phases Complete
-
-- ✅ **Phase 1** — GF(2⁸) arithmetic, polynomial evaluation, Shamir SSS, comprehensive tests
-- ✅ **Phase 2** — Polynomial curve visualization with canvas rendering
-- ✅ **Phase 3** — 5-tab UI: Gate, Visualizer, Security, Uses, Attribution
-- ✅ **Phase 4** — Multi-byte secrets, AES-256-GCM key protection, encrypt/decrypt workflow
-- ✅ **Phase 5** — Information-theoretic security demonstration with k-1 share enumeration
-- ✅ **Phase 6** — Complete documentation and portfolio integration
-
-## Mathematical Foundation
-
-**Shamir's Secret Sharing** works as follows:
-
-**Split:**
-1. Create polynomial f(x) of degree k-1 over GF(2⁸) with f(0) = secret
-2. Generate n shares: (i, f(i)) for i = 1, 2, ..., n
-3. Distribute one share to each party
-
-**Reconstruct:**
-1. Given any k shares, use Lagrange interpolation to recover f(x)
-2. Evaluate f(0) to recover the secret
-3. Fewer than k shares: the system is underdetermined, secret is hidden
-
-**Security:** With k-1 shares, every possible secret is consistent with the known points. All 256 values (for single-byte) are equally likely — perfect secrecy.
-
-## Original Paper
-
-> A. Shamir. "How to Share a Secret." Communications of the ACM, Vol. 22, No. 11, pp. 612–613, November 1979.
-
-## Portfolio Connections
-
-- **frost-threshold**: FROST protocol uses Shamir SSS for distributed key generation
-- **silent-tally**: Additive homomorphic Shamir SSS for secure multi-party computation
-- **quantum-vault-kpqc**: Threshold file encryption using Shamir SSS for post-quantum key custody
-- **kyber-vault**: ML-KEM key encapsulation; keys can be Shamir-split for threshold custody
-
-## Build & Deploy
-
-```bash
-npm run build      # Minified production bundle
-npm run preview   # Test production build locally
-npm test          # Run comprehensive unit tests
-```
-
-Output: `dist/` directory with `index.html` and bundled JavaScript
-
-## Testing
-
-All cryptographic primitives verified:
-- GF(2⁸) multiplication: gfMul(3, 7) = 9, gfMul(0x53, 0xca) = 0x01
-- Polynomial evaluation: Horner's method
-- Lagrange interpolation: k shares → unique recovery
-- Round-trip: 32-byte secret split/reconstruct byte-for-byte match
-- Threshold boundary: k-1 shares fail, k shares succeed
+*Whether you eat or drink or whatever you do, do it all for the glory of God. — 1 Corinthians 10:31*
 - Information-theoretic security: k-1 shares → all 256 secrets consistent
 - AES-256-GCM: encrypt → split → reconstruct → decrypt
 
