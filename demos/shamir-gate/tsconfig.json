@@ -9,11 +9,9 @@
     "allowSyntheticDefaultImports": true,
     "strict": true,
     "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
     "sourceMap": true,
     "moduleResolution": "bundler"
   },
   "include": ["src"],
-  "references": [{ "path": "./tsconfig.app.json" }]
+  "exclude": ["dist", "node_modules"]
 }

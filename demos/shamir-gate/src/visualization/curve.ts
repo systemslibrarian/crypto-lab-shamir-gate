@@ -10,7 +10,8 @@
  */
 
 import { Polynomial, evaluateAt } from '../crypto/polynomial';
-import { Share, split, ShamirConfig } from '../crypto/shamir';
+import { Share } from '../crypto/polynomial';
+import { split, ShamirConfig } from '../crypto/shamir';
 
 export interface VisualizationState {
   /** Current polynomial (undefined if no curve yet) */

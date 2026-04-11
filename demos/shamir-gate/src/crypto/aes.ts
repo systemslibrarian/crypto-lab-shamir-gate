@@ -34,7 +34,7 @@ export async function exportKey(key: CryptoKey): Promise<Uint8Array> {
  * Import AES key from raw bytes (reconstructed from Shamir shares)
  */
 export async function importKey(keyBytes: Uint8Array): Promise<CryptoKey> {
-  return await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-GCM', length: 256 }, true, [
+  return await crypto.subtle.importKey('raw', keyBytes as unknown as ArrayBuffer, { name: 'AES-GCM', length: 256 }, true, [
     'encrypt',
     'decrypt'
   ]);
@@ -81,7 +81,7 @@ export async function decryptAES(key: CryptoKey, ciphertext: string, ivHex: stri
  * Generate key fingerprint (first 16 hex chars of SHA-256 hash)
  */
 export async function getKeyFingerprint(keyBytes: Uint8Array): Promise<string> {
-  const hashBuffer = await crypto.subtle.digest('SHA-256', keyBytes);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', keyBytes as unknown as ArrayBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
   return hashHex.substring(0, 16);
