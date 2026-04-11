@@ -139,14 +139,14 @@ export function deserializeShare(shareStr: string): ShareSet {
     throw new Error('Invalid hex encoding in share');
   }
 
+  if (!/^[0-9a-fA-F]+$/.test(yHex)) {
+    throw new Error('Invalid hex encoding in share');
+  }
+
   const yValues = new Uint8Array(yHex.length / 2);
   for (let i = 0; i < yValues.length; i++) {
     const hex = yHex.substring(i * 2, i * 2 + 2);
     yValues[i] = parseInt(hex, 16);
-
-    if (isNaN(yValues[i])) {
-      throw new Error('Invalid hex value in share');
-    }
   }
 
   return { k, n, index, yValues };

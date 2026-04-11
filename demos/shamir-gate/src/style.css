@@ -23,6 +23,20 @@
   --focus-ring: rgba(0, 217, 255, 0.7);
 }
 
+html[data-theme='light'] {
+  --primary-color: #007c91;
+  --secondary-color: #b0308a;
+  --success-color: #147a38;
+  --danger-color: #b42318;
+  --bg-primary: #f5fbff;
+  --bg-secondary: #e6f2f8;
+  --bg-tertiary: #d2e6f0;
+  --text-primary: #102a43;
+  --text-secondary: #486581;
+  --border-color: rgba(0, 124, 145, 0.22);
+  --focus-ring: rgba(0, 124, 145, 0.45);
+}
+
 html,
 body {
   height: 100%;
@@ -95,6 +109,7 @@ header {
   margin-bottom: 3rem;
   padding: 2rem;
   border-bottom: 2px solid var(--border-color);
+  position: relative;
 }
 
 header h1 {
@@ -110,9 +125,34 @@ header p {
   font-size: 1.2rem;
 }
 
+.theme-toggle {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  width: 2.6rem;
+  height: 2.6rem;
+  min-height: 2.6rem;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  box-shadow: none;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 1.1rem;
+}
+
+.theme-toggle:hover {
+  background: var(--bg-secondary);
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 18px var(--border-color);
+}
+
 /* Tabs */
 .tabs-container {
-  background: rgba(30, 30, 50, 0.8);
+  background: var(--bg-secondary);
   border-radius: 12px;
   border: 1px solid var(--border-color);
   overflow: hidden;
@@ -123,7 +163,7 @@ header p {
   display: flex;
   gap: 0;
   border-bottom: 2px solid var(--border-color);
-  background: rgba(20, 20, 40, 0.8);
+  background: var(--bg-primary);
   flex-wrap: nowrap;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -151,14 +191,14 @@ header p {
 
 .tab-button:hover {
   color: var(--primary-color);
-  background: rgba(0, 217, 255, 0.05);
+  background: var(--bg-tertiary);
 }
 
 .tab-button.active {
   color: var(--primary-color);
   border-bottom-color: var(--primary-color);
-  background: rgba(0, 217, 255, 0.1);
-  box-shadow: inset 0 -2px 8px rgba(0, 217, 255, 0.1);
+  background: var(--bg-tertiary);
+  box-shadow: inset 0 -2px 8px var(--border-color);
 }
 
 .tab-content {
@@ -215,7 +255,7 @@ p {
   align-items: center;
   gap: 1rem;
   padding: 2rem;
-  background: rgba(50, 50, 80, 0.3);
+  background: var(--bg-secondary);
   border-radius: 8px;
   border: 1px solid var(--border-color);
   min-height: 400px;
@@ -225,7 +265,7 @@ p {
 .vault-door {
   width: 150px;
   height: 250px;
-  background: linear-gradient(135deg, #3a3a5a 0%, #2a2a4a 100%);
+  background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
   border: 4px solid var(--primary-color);
   border-radius: 8px;
   position: relative;
@@ -255,7 +295,7 @@ p {
 .generate-section,
 .reconstruct-section {
   padding: 1.5rem;
-  background: rgba(50, 50, 80, 0.3);
+  background: var(--bg-secondary);
   border-radius: 8px;
   border: 1px solid var(--border-color);
 }
@@ -328,7 +368,7 @@ input[type='password'],
 textarea {
   width: 100%;
   padding: 0.75rem;
-  background: rgba(30, 30, 50, 0.6);
+  background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 4px;
   color: var(--text-primary);
@@ -383,7 +423,7 @@ button:disabled {
 
 .share-string {
   padding: 0.75rem;
-  background: rgba(50, 50, 80, 0.5);
+  background: var(--bg-primary);
   border-left: 3px solid var(--primary-color);
   border-radius: 4px;
   font-family: 'Monaco', 'Courier New', monospace;
@@ -422,7 +462,7 @@ canvas {
 /* Security Tab */
 .security-demo {
   padding: 2rem;
-  background: rgba(50, 50, 80, 0.3);
+  background: var(--bg-secondary);
   border-radius: 8px;
   border: 1px solid var(--border-color);
 }
@@ -430,7 +470,7 @@ canvas {
 #security-result {
   margin-top: 1.5rem;
   padding: 1rem;
-  background: rgba(30, 30, 50, 0.6);
+  background: var(--bg-primary);
   border-radius: 4px;
   border-left: 3px solid var(--primary-color);
 }
@@ -445,7 +485,7 @@ canvas {
 
 .use-card {
   padding: 1.5rem;
-  background: rgba(50, 50, 80, 0.3);
+  background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   transition: all 0.3s ease;
@@ -465,7 +505,7 @@ canvas {
 /* About Tab */
 .about-card {
   padding: 2rem;
-  background: rgba(50, 50, 80, 0.3);
+  background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
 }
@@ -528,6 +568,11 @@ canvas {
     font-size: 1rem;
   }
 
+  .theme-toggle {
+    top: 1rem;
+    right: 1rem;
+  }
+
   .tab-content {
     padding: 1.5rem;
   }
@@ -577,6 +622,11 @@ canvas {
   header h1 {
     font-size: 1.6rem;
     letter-spacing: 1px;
+  }
+
+  .theme-toggle {
+    top: 0.75rem;
+    right: 0.75rem;
   }
 
   .tab-content {

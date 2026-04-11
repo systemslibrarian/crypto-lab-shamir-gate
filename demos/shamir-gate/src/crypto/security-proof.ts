@@ -22,7 +22,7 @@ import { gfAdd, gfMul, gfSub, gfDiv } from './gf256';
  * For single-byte secrets: all 256 values of s give valid polynomials
  * This proves the information-theoretic security property
  */
-export function isSecretConsistent(shares: Share[], candidateSecret: number): boolean {
+export function isSecretConsistent(shares: Share[], candidateSecret: number, k: number): boolean {
   if (shares.length === 0) {
     // With zero shares, all secrets are consistent
     return true;
@@ -37,8 +37,6 @@ export function isSecretConsistent(shares: Share[], candidateSecret: number): bo
   // Constraints:
   // a₀ = candidateSecret
   // a₀ + a₁xᵢ + a₂xᵢ² + ... = yᵢ for each share
-
-  const k = shares.length + 1; // polynomial degree = shares.length
 
   // Build augmented matrix [A | b] where:
   // Row 0: [1, 0, 0, ..., 0 | candidateSecret]
@@ -150,7 +148,7 @@ export function findAllConsistentSecrets(shares: Share[], k: number): number[] {
 
   // For single-byte secrets over GF(2⁸), try all 256 possible values
   for (let candidateSecret = 0; candidateSecret < 256; candidateSecret++) {
-    if (isSecretConsistent(shares, candidateSecret)) {
+    if (isSecretConsistent(shares, candidateSecret, k)) {
       consistentSecrets.push(candidateSecret);
     }
   }

@@ -19,6 +19,7 @@ import { findAllConsistentSecrets } from './crypto/security-proof';
 import { generateAESKey, exportKey, importKey, encryptAES, decryptAES, getKeyFingerprint } from './crypto/aes';
 
 let currentVisualizer: CurveVisualizer | null = null;
+const THEME_STORAGE_KEY = 'theme';
 
 // State for AES protection demo
 let currentEncryptedMessage: { ciphertext: string; iv: string } | null = null;
@@ -50,6 +51,7 @@ function initializeUI(): void {
   root.innerHTML = `
     <div class="container">
       <header>
+        <button id="theme-toggle" class="theme-toggle" type="button"></button>
         <h1>Shamir-Gate</h1>
         <p>Interactive Shamir's Secret Sharing Cryptographic Demo</p>
       </header>
@@ -106,23 +108,23 @@ function initializeUI(): void {
                 <div id="result-display" role="status" aria-live="polite"></div>
               </div>
 
-              <div class="aes-section" style="margin-top: 2rem; border-top: 2px solid rgba(0, 217, 255, 0.2); padding-top: 2rem;">
+              <div class="aes-section" style="margin-top: 2rem; border-top: 2px solid var(--border-color); padding-top: 2rem;">
                 <h3>🔐 Protect a Message with AES-256</h3>
-                <p style="color: #a0a0c0; font-size: 0.9rem;">Demonstrates the canonical pattern: Generate AES key → Encrypt message → Split key with SSS → Share split key.</p>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">Demonstrates the canonical pattern: Generate AES key → Encrypt message → Split key with SSS → Share split key.</p>
                 <label for="message-input" class="sr-only">Message to encrypt</label>
                 <input type="text" id="message-input" placeholder="Enter message to encrypt" value="Topsecret data" aria-label="Message to encrypt" />
                 <button id="encrypt-btn">Encrypt &amp; Split Key</button>
                 <div id="crypto-display" style="display: none;">
-                  <h4 style="color: #00ff00; margin-top: 1rem;">Encrypted Message</h4>
-                  <div class="share-string" id="ciphertext-display" style="word-break: break-all; color: #00d9ff;"></div>
-                  <h4 style="color: #00ff00; margin-top: 1rem;">Key Fingerprint</h4>
+                  <h4 style="color: var(--success-color); margin-top: 1rem;">Encrypted Message</h4>
+                  <div class="share-string" id="ciphertext-display" style="word-break: break-all; color: var(--primary-color);"></div>
+                  <h4 style="color: var(--success-color); margin-top: 1rem;">Key Fingerprint</h4>
                   <div class="share-string" id="fingerprint-display" style="font-family: monospace;"></div>
-                  <h4 style="color: #00ff00; margin-top: 1rem;">Key Shares</h4>
+                  <h4 style="color: var(--success-color); margin-top: 1rem;">Key Shares</h4>
                   <div id="key-shares-list"></div>
                 </div>
-                <hr style="border: none; border-top: 1px solid rgba(0, 217, 255, 0.2); margin: 1.5rem 0;" />
+                <hr style="border: none; border-top: 1px solid var(--border-color); margin: 1.5rem 0;" />
                 <h3>Decrypt Message</h3>
-                <p style="color: #a0a0c0; font-size: 0.9rem;">Reconstruct the AES key from k key shares, then decrypt the message.</p>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">Reconstruct the AES key from k key shares, then decrypt the message.</p>
                 <label for="key-shares-input" class="sr-only">Key shares for decryption</label>
                 <textarea id="key-shares-input" placeholder="Paste k key shares (one per line)" aria-label="Key shares for decryption"></textarea>
                 <button id="decrypt-btn">Reconstruct Key &amp; Decrypt</button>
@@ -175,7 +177,7 @@ function initializeUI(): void {
               <h3>Nuclear Launch Codes (Historical)</h3>
               <p>Two-person integrity rule: secret codes split so no single person can launch.</p>
             </div>
-            <div class="use-card" style="background: rgba(100, 100, 150, 0.3); border: 2px solid #00d9ff;">
+            <div class="use-card" style="background: var(--bg-tertiary); border: 2px solid var(--primary-color);">
               <h3>Portfolio Demos</h3>
               <p><strong>frost-threshold:</strong> FROST protocol uses Shamir SSS for distributed key generation.<br/>
               <strong>silent-tally:</strong> Additive homomorphic SSS for multi-party computation.<br/>
@@ -208,12 +210,46 @@ function initializeUI(): void {
     </div>
   `;
 
+  initializeThemeToggle();
+
   // Attach event listeners
   attachTabHandlers();
   attachGateHandlers();
   attachVisualizerHandlers();
   attachSecurityHandlers();
   attachSliderHandlers();
+}
+
+function getCurrentTheme(): 'dark' | 'light' {
+  return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+}
+
+function updateThemeToggle(theme: 'dark' | 'light'): void {
+  const toggle = document.getElementById('theme-toggle');
+  if (!(toggle instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  toggle.textContent = theme === 'dark' ? '🌙' : '☀️';
+  toggle.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+}
+
+function setTheme(theme: 'dark' | 'light'): void {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem(THEME_STORAGE_KEY, theme);
+  updateThemeToggle(theme);
+}
+
+function initializeThemeToggle(): void {
+  const toggle = document.getElementById('theme-toggle');
+  if (!(toggle instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  updateThemeToggle(getCurrentTheme());
+  toggle.addEventListener('click', () => {
+    setTheme(getCurrentTheme() === 'dark' ? 'light' : 'dark');
+  });
 }
 
 function activateTab(button: Element): void {
@@ -352,7 +388,7 @@ function attachGateHandlers(): void {
       const k = shares[0].k;
       if (shares.length < k) {
         document.getElementById('result-display')!.innerHTML = `
-          <p style="color: #ff6666;">❌ Need ${k} shares to reconstruct, provided ${shares.length}</p>
+          <p style="color: var(--danger-color);">❌ Need ${k} shares to reconstruct, provided ${shares.length}</p>
         `;
         updateLockStatus(shares.length, k);
         return;
@@ -366,12 +402,12 @@ function attachGateHandlers(): void {
 
       const recoveredStr = new TextDecoder().decode(recovered);
       document.getElementById('result-display')!.innerHTML = `
-        <p style="color: #00ff00;">✓ Secret reconstructed: <strong>${recoveredStr}</strong></p>
+        <p style="color: var(--success-color);">✓ Secret reconstructed: <strong>${recoveredStr}</strong></p>
       `;
       updateLockStatus(shares.length, k);
     } catch (err) {
       document.getElementById('result-display')!.innerHTML = `
-        <p style="color: #ff6666;">❌ Error: ${err instanceof Error ? err.message : 'Invalid share format'}</p>
+        <p style="color: var(--danger-color);">❌ Error: ${err instanceof Error ? err.message : 'Invalid share format'}</p>
       `;
     }
   });
@@ -417,7 +453,7 @@ function attachGateHandlers(): void {
 
       const keySharesList = document.getElementById('key-shares-list')!;
       keySharesList.innerHTML = keyShareStrings
-        .map((s) => `<div class="share-string" style="color: #00d9ff;">${s}</div>`)
+        .map((s) => `<div class="share-string" style="color: var(--primary-color);">${s}</div>`)
         .join('');
 
       document.getElementById('crypto-display')!.style.display = 'block';
@@ -455,7 +491,7 @@ function attachGateHandlers(): void {
       const k = keyShares[0].k;
       if (keyShares.length < k) {
         document.getElementById('decrypt-result')!.innerHTML = `
-          <p style="color: #ff6666;">❌ Need ${k} key shares to reconstruct, provided ${keyShares.length}</p>
+          <p style="color: var(--danger-color);">❌ Need ${k} key shares to reconstruct, provided ${keyShares.length}</p>
         `;
         decryptBtn.disabled = false;
         decryptBtn.textContent = 'Reconstruct Key & Decrypt';
@@ -470,14 +506,14 @@ function attachGateHandlers(): void {
       const decrypted = await decryptAES(reconstructedKey, currentEncryptedMessage.ciphertext, currentEncryptedMessage.iv);
 
       document.getElementById('decrypt-result')!.innerHTML = `
-        <p style="color: #00ff00;">✓ Message decrypted: <strong>${decrypted}</strong></p>
+        <p style="color: var(--success-color);">✓ Message decrypted: <strong>${decrypted}</strong></p>
       `;
 
       decryptBtn.disabled = false;
       decryptBtn.textContent = 'Reconstruct Key & Decrypt';
     } catch (err) {
       document.getElementById('decrypt-result')!.innerHTML = `
-        <p style="color: #ff6666;">❌ Error: ${err instanceof Error ? err.message : 'Decryption failed'}</p>
+        <p style="color: var(--danger-color);">❌ Error: ${err instanceof Error ? err.message : 'Decryption failed'}</p>
       `;
       decryptBtn.disabled = false;
       decryptBtn.textContent = 'Reconstruct Key & Decrypt';
@@ -522,7 +558,7 @@ function attachSecurityHandlers(): void {
     resultDiv.innerHTML = `
       <p><strong>Reveals ${numShares} shares from a 3-of-5 scheme:</strong></p>
       <p>${consistent.length} out of 256 possible secrets are consistent with these shares.</p>
-      ${numShares < 3 ? '<p style="color: #ff0;">With fewer than k=3 shares, all 256 secrets are equally likely (perfect secrecy).</p>' : '<p style="color: #0f0;">With all k=3 shares, exactly 1 secret is consistent (unique recovery).</p>'}
+      ${numShares < 3 ? '<p style="color: var(--secondary-color);">With fewer than k=3 shares, all 256 secrets are equally likely (perfect secrecy).</p>' : '<p style="color: var(--success-color);">With all k=3 shares, exactly 1 secret is consistent (unique recovery).</p>'}
     `;
   });
 }
@@ -552,10 +588,10 @@ function updateLockStatus(revealed: number, required: number): void {
   const status = document.getElementById('lock-status')!;
   if (revealed >= required) {
     status.textContent = '🔓 UNLOCKED';
-    status.style.color = '#00ff00';
+    status.style.color = 'var(--success-color)';
   } else {
     status.textContent = `🔒 LOCKED (${revealed}/${required})`;
-    status.style.color = '#ff0000';
+    status.style.color = 'var(--danger-color)';
   }
 }
 
