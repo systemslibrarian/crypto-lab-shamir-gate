@@ -11,7 +11,6 @@ import {
   lagrangeEvalAt,
   evalPoly,
   modInverse,
-  choosePrime,
 } from './math';
 import {
   secretToInt,
@@ -403,7 +402,6 @@ function initPolyTab(): void {
 // ── Tab 3: SECURITY PROOF ─────────────────────────────────────────
 function initSecurityTab(): void {
   const proof_p = 257n;
-  const proof_t = 3;
   // Fixed shares for the proof (attacker observes these 2 of 3 needed)
   const proofShares = [{ x: 1n, y: 75n }, { x: 2n, y: 140n }];
 

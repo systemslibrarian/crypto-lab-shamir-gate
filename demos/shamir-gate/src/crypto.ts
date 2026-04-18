@@ -1,7 +1,6 @@
 /**
  * AES-256-GCM + secret conversion utilities for Shamir's Secret Sharing Demo
  *
- * All randomness via crypto.getRandomValues.
  * All randomness via crypto.getRandomValues only. No floating point in math layers.
  */
 

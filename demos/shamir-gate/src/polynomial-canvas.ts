@@ -115,8 +115,7 @@ export function drawPolynomial(canvas: HTMLCanvasElement, config: PolyCanvasConf
       let first = true;
       for (let xi = 0; xi <= xRange * 20; xi++) {
         const xFrac = xi / 20;
-        const xBig = BigInt(Math.round(xFrac * 10)) % (p - 1n) + 1n;
-        const actualX = (xFrac === 0) ? 0n : xBig;
+        const actualX = floatToBigIntX(xFrac, p);
         const yVal = lagrangeEvalAt(pts, actualX, p);
         const px = toPixelX(xFrac);
         const py = toPixelY(yVal);
