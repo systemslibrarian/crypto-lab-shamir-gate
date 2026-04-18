@@ -2,7 +2,7 @@
  * AES-256-GCM + secret conversion utilities for Shamir's Secret Sharing Demo
  *
  * All randomness via crypto.getRandomValues.
- * No Math.random(), no floating point in the math layers.
+ * All randomness via crypto.getRandomValues only. No floating point in math layers.
  */
 
 import { choosePrime } from './math';

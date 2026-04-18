@@ -1,7 +1,7 @@
 /**
  * Shamir-Gate — Main UI
  * Six-tab Shamir's Secret Sharing demo.
- * All arithmetic: BigInt over GF(p). No Math.random(). No floating point in math.
+ * All arithmetic: BigInt over GF(p). All randomness via crypto.getRandomValues. No float in math.
  */
 
 import {
