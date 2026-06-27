@@ -7,6 +7,18 @@
 import { choosePrime } from './math';
 
 /**
+ * Copy bytes into a standalone ArrayBuffer.
+ * WebCrypto's BufferSource requires an ArrayBuffer-backed view; since TypeScript 5.7
+ * a bare Uint8Array is typed over ArrayBufferLike (which includes SharedArrayBuffer),
+ * so we hand WebCrypto a guaranteed ArrayBuffer.
+ */
+function toArrayBuffer(view: Uint8Array): ArrayBuffer {
+  const ab = new ArrayBuffer(view.byteLength);
+  new Uint8Array(ab).set(view);
+  return ab;
+}
+
+/**
  * Convert a text secret to a BigInt for use in Shamir.
  * Encoding: UTF-8 bytes → big-endian integer.
  * Chooses appropriate prime automatically.
@@ -56,7 +68,7 @@ export async function aesEncrypt(
 ): Promise<{ ciphertext: string; iv: string }> {
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
-    key,
+    toArrayBuffer(key),
     { name: 'AES-GCM', length: 256 },
     false,
     ['encrypt']
@@ -80,15 +92,15 @@ export async function aesDecrypt(
 ): Promise<string> {
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
-    key,
+    toArrayBuffer(key),
     { name: 'AES-GCM', length: 256 },
     false,
     ['decrypt']
   );
   const decrypted = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: fromHex(iv) },
+    { name: 'AES-GCM', iv: toArrayBuffer(fromHex(iv)) },
     cryptoKey,
-    fromHex(ciphertext)
+    toArrayBuffer(fromHex(ciphertext))
   );
   return new TextDecoder().decode(decrypted);
 }

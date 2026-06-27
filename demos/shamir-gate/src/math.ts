@@ -150,9 +150,14 @@ export async function generateShares(
   if (n >= p) throw new Error('n must be < p');
 
   // coefficients: [secret, random a1, ..., random a_{t-1}]
+  // Non-leading coefficients are uniform over the full field [0, p), exactly as in
+  // Shamir's 1979 construction. The leading coefficient a_{t-1} is drawn from
+  // [1, p) so the polynomial has degree *exactly* t-1: a zero leading term would
+  // drop the degree and let t-1 shares reconstruct, weakening the threshold.
   const coefficients: bigint[] = [secret];
   for (let i = 1; i < t; i++) {
-    coefficients.push(await randomBigInt(1n, p));
+    const isLeading = i === t - 1;
+    coefficients.push(await randomBigInt(isLeading ? 1n : 0n, p));
   }
 
   const shares: Array<{ x: bigint; y: bigint }> = [];
@@ -190,34 +195,14 @@ export function polyForSecret(
   candidateSecret: bigint,
   p: bigint
 ): bigint[] {
-  // Augment with the (0, candidateSecret) point
+  // Augment the t-1 shares with the (0, candidateSecret) point, giving t points
+  // that uniquely determine a degree-(t-1) polynomial over GF(p). We recover its
+  // power-basis coefficients in two steps: build Newton's divided-difference
+  // coefficients, then convert them to standard form so evalPoly() can use them.
   const allPoints = [{ x: 0n, y: candidateSecret }, ...shares];
   const t = allPoints.length; // degree = t-1
 
-  // We need to recover the coefficients [a0, a1, ..., a_{t-1}].
-  // Use the fact that the polynomial is uniquely determined by t points.
-  // Extract coefficients via point evaluation on {0,1,...,t-1}.
-  // Instead, just return the evaluations at integer points as "coefficients"
-  // for visualization purposes only. For display we only need to evaluate
-  // the polynomial at many x values, which Lagrange can do directly.
-  // Return a special marker: the allPoints themselves.
-  // But the interface wants bigint[]. So we return [a0] plus placeholder 
-  // to signal "use lagrange", OR we actually solve the system.
-
-  // Solve: with t points, use Lagrange to evaluate at x = 0,1,...,t-1
-  // and then use those as "samples". Actually, let's just return the points
-  // as a coefficient-like structure using Newton's divided differences method.
-  // For simplicity: return the Lagrange-interpolated values at x=0..t-1 as
-  // "coefficients" so that evalPoly works correctly using these as basis.
-  // Actually the simplest correct approach: just return allPoints as metadata
-  // and have the caller use lagrangeEvalAt(allPoints, x, p) directly.
-
-  // The real use: UI calls polyForSecret then evaluates at many x to draw the curve.
-  // We'll represent this polynomial by its point set and expose an evaluator.
-  // But since we need bigint[], let's compute actual coefficients via the
-  // Newton forward difference method.
-
-  // Use Newton's divided differences over GF(p):
+  // Newton's divided differences over GF(p):
   const xs = allPoints.map(pt => pt.x);
   let table = allPoints.map(pt => pt.y);
 
@@ -232,8 +217,6 @@ export function polyForSecret(
     coeffs.push(((next[0] % p) + p) % p);
     table = next;
   }
-  // Newton coefficients — need special evaluator. Return standard power
-  // coefficients instead via conversion.
   return newtonToStandard(coeffs, xs, p, t);
 }
 

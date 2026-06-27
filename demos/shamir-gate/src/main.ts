@@ -9,7 +9,6 @@ import {
   reconstructSecret,
   lagrangeAt0,
   lagrangeEvalAt,
-  evalPoly,
   modInverse,
 } from './math';
 import {
@@ -93,12 +92,13 @@ function deserializeShare(s: string): { x: bigint; y: bigint; p: bigint } | null
 interface GateState {
   n: number;
   t: number;
+  genT: number; // threshold actually used at the last generation
   shares: Array<{ x: bigint; y: bigint }>;
   prime: bigint;
   submittedCount: number;
 }
 
-const gate: GateState = { n: 5, t: 3, shares: [], prime: 257n, submittedCount: 0 };
+const gate: GateState = { n: 5, t: 3, genT: 3, shares: [], prime: 257n, submittedCount: 0 };
 
 function updateLock(submitted: number, threshold: number): void {
   const svg = el('lock-svg');
@@ -160,6 +160,7 @@ function initGateTab(): void {
     try {
       const { shares, coefficients } = await generateShares(secretInt, gate.t, gate.n, prime);
       gate.shares = shares;
+      gate.genT = gate.t;
       gate.submittedCount = 0;
       updateLock(0, gate.t);
       updateSlots(gate.n, 0);
@@ -173,7 +174,7 @@ function initGateTab(): void {
         div.innerHTML = `
           <span class="share-label">Share ${i + 1}</span>
           <span class="share-val" title="${serialized}">${serialized.substring(0, 60)}${serialized.length > 60 ? '…' : ''}</span>
-          <button type="button">Copy</button>
+          <button type="button" aria-label="Copy share ${i + 1}">Copy</button>
         `;
         div.querySelector('button')!.addEventListener('click', () => {
           navigator.clipboard.writeText(serialized).catch(() => {});
@@ -200,14 +201,43 @@ function initGateTab(): void {
     const lines = (el<HTMLTextAreaElement>('gate-shares-input').value).trim().split('\n').filter(Boolean);
     const parsed = lines.map(l => deserializeShare(l)).filter(Boolean) as Array<{ x: bigint; y: bigint; p: bigint }>;
     if (parsed.length === 0) { showResult('gate-result', 'No valid shares found.', 'error'); return; }
+
+    // Reject duplicate x-coordinates: Lagrange interpolation divides by (x_i − x_j),
+    // so two shares with the same x are not independent and break reconstruction.
+    const xs = parsed.map(s => s.x.toString());
+    if (new Set(xs).size !== xs.length) {
+      showResult('gate-result', 'Duplicate share x-coordinates detected — each share must be distinct.', 'error');
+      return;
+    }
+
+    // All shares must come from the same split — i.e. share the same prime field.
+    if (parsed.some(s => s.p !== parsed[0].p)) {
+      showResult('gate-result', 'Shares use different primes — they are from different splits.', 'error');
+      return;
+    }
+
     const p = parsed[0].p;
     try {
       const secret = reconstructSecret(parsed.map(s => ({ x: s.x, y: s.y })), p);
       const text = intToSecret(secret);
       gate.submittedCount = Math.min(parsed.length, gate.n);
-      updateLock(gate.submittedCount, gate.t);
+      updateLock(gate.submittedCount, gate.genT);
       updateSlots(gate.n, gate.submittedCount);
-      showResult('gate-result', `✓ Secret recovered: "${text}" (integer: ${secret})`, 'success');
+
+      // Below threshold, Lagrange still returns *a* number — but it is not the
+      // secret. Surfacing this honestly is the core lesson: t−1 shares look just
+      // as confident as t shares, yet reveal nothing about the true value.
+      if (parsed.length < gate.genT) {
+        showResult(
+          'gate-result',
+          `✗ Below threshold: ${parsed.length} of ${gate.genT} shares. ` +
+          `Interpolation yields "${text}" (integer: ${secret}) — but this is NOT the secret. ` +
+          `Every possible secret is equally consistent with these shares. Add more shares.`,
+          'error'
+        );
+      } else {
+        showResult('gate-result', `✓ Secret recovered: "${text}" (integer: ${secret})`, 'success');
+      }
     } catch (e: unknown) {
       showResult('gate-result', `Error: ${(e as Error).message}`, 'error');
     }
@@ -259,7 +289,6 @@ function buildLagrangeSteps(activePoints: Array<{ x: bigint; y: bigint }>, p: bi
   const liValues: bigint[] = [];
   for (let i = 0; i < k; i++) {
     const xi = activePoints[i].x;
-    const yi = activePoints[i].y;
     const numParts: string[] = [];
     const denParts: string[] = [];
     let num = 1n;
@@ -300,7 +329,7 @@ function updateLagrangeStepper(): void {
   poly.lagrangeSteps = buildLagrangeSteps(activePoints, poly.p);
   poly.stepIndex = Math.min(poly.stepIndex, poly.lagrangeSteps.length - 1);
 
-  const stepsHtml = poly.lagrangeSteps.slice(0, poly.stepIndex + 1).map((s, i) => `
+  const stepsHtml = poly.lagrangeSteps.slice(0, poly.stepIndex + 1).map((s) => `
     <div class="lagrange-step">${s.replace(/\n/g, '<br>').replace(/<b>(.*?)<\/b>/g, '<span class="highlight">$1</span>')}</div>
   `).join('');
 
@@ -363,7 +392,11 @@ function initPolyTab(): void {
 
   el('poly-generate').addEventListener('click', async () => {
     if (poly.cancelAnim) poly.cancelAnim();
-    const secretInput = parseInt((el<HTMLInputElement>('poly-secret').value) || '42');
+    const secretInput = parseInt((el<HTMLInputElement>('poly-secret').value).trim() || '42', 10);
+    if (!Number.isFinite(secretInput) || secretInput < 0) {
+      showResult('poly-result', 'Secret must be a non-negative integer.', 'error');
+      return;
+    }
     poly.secret = BigInt(secretInput);
     poly.p = BigInt(pSelect.value);
     poly.t = parseInt(tSlider.value);
@@ -382,6 +415,13 @@ function initPolyTab(): void {
 
     buildShareToggles();
     el('poly-canvas-area').style.display = 'block';
+
+    // Honor prefers-reduced-motion: render the final curve immediately, no sweep.
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) {
+      redrawPolyCanvas();
+      return;
+    }
 
     const canvas = el<HTMLCanvasElement>('poly-canvas');
     poly.cancelAnim = animatePolynomial(canvas, {
@@ -477,11 +517,14 @@ function initSecurityTab(): void {
     ctx.setLineDash(ci === 1 ? [] : [5, 4]);
     ctx.beginPath();
     let first = true;
+    // Sample over the SAME x-domain we plot ([0, xMax]); GF(p) is defined only at
+    // integers, so we evaluate at each integer x and connect with straight lines.
+    // This is what makes every candidate curve pass exactly through the shares.
     for (let x = 0; x <= 40; x++) {
-      const xB = BigInt(Math.round((x / 40) * 30));
-      const limitX = xB >= proof_p ? proof_p - 1n : xB;
-      const yV = lagrangeEvalAt(pts, limitX, proof_p);
-      const px = toX(x / 40 * xMax);
+      const logicalX = (x / 40) * xMax;
+      const xB = BigInt(Math.round(logicalX));
+      const yV = lagrangeEvalAt(pts, xB, proof_p);
+      const px = toX(logicalX);
       const py = toY(yV);
       if (first) { ctx.moveTo(px, py); first = false; }
       else ctx.lineTo(px, py);
@@ -521,9 +564,10 @@ interface AesVaultState {
   shares: Array<{ x: bigint; y: bigint }>;
   t: number;
   n: number;
+  genT: number; // threshold actually used at the last key split
 }
 
-const vault: AesVaultState = { key: null, ciphertext: '', iv: '', shares: [], t: 3, n: 5 };
+const vault: AesVaultState = { key: null, ciphertext: '', iv: '', shares: [], t: 3, n: 5, genT: 3 };
 
 function initAesTab(): void {
   const tSlider = el<HTMLInputElement>('aes-t');
@@ -547,6 +591,7 @@ function initAesTab(): void {
     const message = (el<HTMLInputElement>('aes-message').value || 'Top secret document').trim();
     vault.t = parseInt(tSlider.value);
     vault.n = parseInt(nSlider.value);
+    vault.genT = vault.t;
 
     try {
       vault.key = await generateAESKey();
@@ -578,7 +623,7 @@ function initAesTab(): void {
         div.innerHTML = `
           <span class="share-label">Share ${i + 1}</span>
           <span class="share-val" title="${ser}">${ser.substring(0, 40)}…</span>
-          <button type="button">Copy</button>
+          <button type="button" aria-label="Copy share ${i + 1}">Copy</button>
         `;
         div.querySelector('button')!.addEventListener('click', () => {
           navigator.clipboard.writeText(ser).catch(() => {});
@@ -594,8 +639,13 @@ function initAesTab(): void {
   el('aes-decrypt').addEventListener('click', async () => {
     const lines = (el<HTMLTextAreaElement>('aes-shares-input').value).trim().split('\n').filter(Boolean);
     const parsed = lines.map(l => deserializeShare(l)).filter(Boolean) as Array<{ x: bigint; y: bigint; p: bigint }>;
-    if (parsed.length < vault.t) {
-      showResult('aes-result', `Need at least ${vault.t} shares (got ${parsed.length}).`, 'error');
+    if (parsed.length < vault.genT) {
+      showResult('aes-result', `Need at least ${vault.genT} shares (got ${parsed.length}).`, 'error');
+      return;
+    }
+    const aesXs = parsed.map(s => s.x.toString());
+    if (new Set(aesXs).size !== aesXs.length) {
+      showResult('aes-result', 'Duplicate share x-coordinates detected — each share must be distinct.', 'error');
       return;
     }
     const cipher = (el<HTMLInputElement>('aes-decrypt-cipher').value || vault.ciphertext).trim();
@@ -648,7 +698,7 @@ function renderShell(): void {
             <path class="keyhole-path" d="M40 58 m-7 0 a7 7 0 1 1 14 0 a7 7 0 0 1 -14 0 M37 65 h6 l-1 14 h-4 z" />
           </svg>
           <div id="lock-label" class="lock-label locked">🔒 LOCKED</div>
-          <div id="lock-progress" class="progress-line">Shares collected: <span>0</span> / 3 needed</div>
+          <div id="lock-progress" class="progress-line" role="status" aria-live="polite">Shares collected: <span>0</span> / 3 needed</div>
           <div class="share-slots" id="share-slots"></div>
         </div>
       </div>
@@ -658,14 +708,14 @@ function renderShell(): void {
         <div class="field-group">
           <label for="gate-t">Threshold (t):</label>
           <div class="slider-row">
-            <input type="range" id="gate-t" min="2" max="10" value="3" aria-valuenow="3" aria-valuemin="2" aria-valuemax="10">
+            <input type="range" id="gate-t" min="2" max="10" value="3">
             <span class="slider-val" id="gate-t-val">3</span>
           </div>
         </div>
         <div class="field-group">
           <label for="gate-n">Total shares (n):</label>
           <div class="slider-row">
-            <input type="range" id="gate-n" min="3" max="15" value="5" aria-valuenow="5" aria-valuemin="3" aria-valuemax="15">
+            <input type="range" id="gate-n" min="3" max="15" value="5">
             <span class="slider-val" id="gate-n-val">5</span>
           </div>
         </div>
@@ -688,7 +738,7 @@ function renderShell(): void {
             <textarea id="gate-shares-input" placeholder="1:847392:65537&#10;2:293847:65537&#10;..."></textarea>
           </div>
           <button class="btn-secondary" id="gate-reconstruct" type="button">Reconstruct</button>
-          <div class="result-box" id="gate-result"></div>
+          <div class="result-box" id="gate-result" role="status" aria-live="polite"></div>
         </div>
       </div>
     </div>
@@ -729,7 +779,7 @@ function renderShell(): void {
         <div class="btn-row">
           <button class="btn-primary" id="poly-generate" type="button">Generate &amp; Animate</button>
         </div>
-        <div class="result-box" id="poly-result"></div>
+        <div class="result-box" id="poly-result" role="status" aria-live="polite"></div>
       </div>
 
       <div>
@@ -839,7 +889,7 @@ function renderShell(): void {
         <textarea id="aes-shares-input" placeholder="1:8472...:11579...&#10;2:2938...:11579..."></textarea>
       </div>
       <button class="btn-secondary" id="aes-decrypt" type="button">Reconstruct Key &amp; Decrypt</button>
-      <div class="result-box" id="aes-result"></div>
+      <div class="result-box" id="aes-result" role="status" aria-live="polite"></div>
     </div>
 
     <div class="security-note">

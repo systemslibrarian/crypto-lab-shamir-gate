@@ -228,7 +228,7 @@ export function animatePolynomial(
   let cancelled = false;
   const start = performance.now();
 
-  const { coefficients, shares, prime: p, threshold, activeShares } = config;
+  const { coefficients, shares, prime: p } = config;
   const n = shares.length;
   const xRange = n + 1;
   const PAD_L = PAD;
