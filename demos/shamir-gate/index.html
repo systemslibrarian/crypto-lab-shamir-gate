@@ -6,8 +6,10 @@
     <title>Shamir-Gate — Shamir's Secret Sharing</title>
     <script>
       (function () {
-        const saved = localStorage.getItem('cv-theme');
-        document.documentElement.setAttribute('data-theme', saved ?? 'dark');
+        // The visible toggle is the shared Crypto Lab header, which persists to the
+        // 'theme' key; fall back to this demo's legacy 'cv-theme' key, then dark.
+        const saved = localStorage.getItem('theme') ?? localStorage.getItem('cv-theme');
+        document.documentElement.setAttribute('data-theme', saved === 'light' ? 'light' : 'dark');
       })();
     </script>
     <link rel="stylesheet" href="/src/style.css" />
