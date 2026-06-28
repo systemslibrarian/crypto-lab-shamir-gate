@@ -796,3 +796,151 @@ footer {
     scroll-behavior: auto !important;
   }
 }
+
+/* ============================================================
+   Teaching features (Lesson, Failure Lab, proof lab, etc.)
+   ============================================================ */
+
+/* ── Prediction checkpoints ── */
+.predict {
+  background: var(--bg3);
+  border: 1px solid var(--border-bright);
+  border-left: 3px solid var(--gold);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: .9rem 1.1rem;
+  margin-top: 1rem;
+}
+.predict-q { font-family: var(--font-mono); font-size: .82rem; color: var(--text-mono); margin-bottom: .6rem; }
+.predict-options { display: flex; flex-direction: column; gap: .4rem; }
+.predict-opt {
+  text-align: left; text-transform: none; letter-spacing: 0; font-weight: 600;
+  background: var(--bg2); color: var(--text); border: 1px solid var(--border-bright);
+}
+.predict-opt:hover:not(:disabled) { border-color: var(--cyan); }
+.predict-opt:disabled { cursor: default; opacity: .9; }
+.predict-opt.correct { border-color: var(--green); color: var(--green); background: rgba(0,255,136,.08); }
+.predict-opt.incorrect { border-color: var(--red); color: var(--red); background: rgba(255,51,102,.08); }
+.predict-reveal {
+  margin-top: .6rem; font-family: var(--font-mono); font-size: .8rem;
+  color: var(--text-dim); line-height: 1.7;
+}
+.predict-reveal .ok { color: var(--green); }
+.predict-reveal .no { color: var(--red); }
+
+/* ── Lesson ── */
+.lesson-intro { color: var(--text-dim); font-size: .9rem; line-height: 1.7; margin-bottom: 1.25rem; max-width: 70ch; }
+.lesson-panel { max-width: 760px; }
+.lesson-progress {
+  font-family: var(--font-mono); font-size: .72rem; text-transform: uppercase;
+  letter-spacing: .1em; color: var(--cyan); margin-bottom: .5rem;
+}
+.lesson-panel h3 {
+  font-family: var(--font-mono); color: var(--gold); font-size: 1rem;
+  border: none; padding: 0; margin-bottom: .75rem; text-transform: none; letter-spacing: .02em;
+}
+.lesson-text { color: var(--text); font-size: .9rem; line-height: 1.8; }
+.lesson-text b { color: var(--text-mono); }
+.lesson-math {
+  font-family: var(--font-mono); font-size: .9rem; color: var(--cyan);
+  background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: .6rem .9rem; margin: .75rem 0; word-break: break-word;
+}
+
+/* ── Points table (canvas text alternative) ── */
+.points-wrap { margin-top: 1rem; overflow-x: auto; }
+.points-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: .78rem; }
+.points-table caption { text-align: left; color: var(--text-dim); font-size: .73rem; margin-bottom: .5rem; line-height: 1.5; }
+.points-table th, .points-table td {
+  border: 1px solid var(--border); padding: .35rem .6rem; text-align: left; color: var(--text-mono);
+}
+.points-table thead th { color: var(--cyan); background: var(--bg3); }
+.points-table .row-active td, .points-table .row-active th { color: var(--green); }
+.points-table .row-secret td, .points-table .row-secret th { color: var(--gold); }
+
+/* ── Viz toggle ── */
+.viz-toggle {
+  display: flex; align-items: flex-start; gap: .5rem; margin-top: .6rem;
+  font-family: var(--font-mono); font-size: .73rem; color: var(--text-dim); line-height: 1.5; cursor: pointer;
+}
+.viz-toggle input { width: auto; accent-color: var(--cyan); margin-top: .15rem; }
+
+/* ── Proof lab ── */
+.proof-lab { margin-top: 1.5rem; }
+.proof-lab h3 { color: var(--cyan); }
+.proof-lab-row { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+.proof-lab-row input { max-width: 140px; }
+.proof-lab-counter {
+  margin-top: .75rem; font-family: var(--font-mono); font-size: .8rem;
+  color: var(--gold); font-weight: 700;
+}
+
+/* ── Concept separation (AES tab) ── */
+.concept-callout {
+  background: var(--bg2); border: 1px solid var(--border-bright);
+  border-radius: var(--radius); padding: 1.25rem 1.5rem; margin-bottom: 1.25rem;
+}
+.concept-callout h3 {
+  font-family: var(--font-mono); color: var(--cyan); font-size: .85rem;
+  text-transform: uppercase; letter-spacing: .07em; margin-bottom: 1rem;
+}
+.concept-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; }
+@media (max-width: 600px) { .concept-grid { grid-template-columns: 1fr; } }
+.concept-grid > div {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: .75rem;
+  display: flex; flex-direction: column; gap: .3rem;
+}
+.concept-grid b { font-family: var(--font-mono); color: var(--gold); font-size: .8rem; }
+.concept-grid span { color: var(--text-dim); font-size: .8rem; line-height: 1.6; }
+.concept-pattern { margin-top: 1rem; color: var(--text-mono); font-size: .82rem; line-height: 1.7; }
+.concept-pattern b { color: var(--green); }
+
+/* ── Disclaimer ── */
+.disclaimer {
+  background: rgba(255,51,102,.06); border: 1px solid rgba(255,51,102,.3);
+  border-radius: var(--radius); padding: 1rem 1.25rem; margin-top: 1rem;
+  font-family: var(--font-mono); font-size: .78rem; color: var(--text-dim); line-height: 1.8;
+}
+.disclaimer strong { color: var(--red); }
+
+/* ── Sources ── */
+.sources {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1.25rem 1.5rem; margin-top: 1.5rem;
+}
+.sources h3 {
+  font-family: var(--font-mono); color: var(--cyan); font-size: .85rem;
+  text-transform: uppercase; letter-spacing: .07em; margin-bottom: .75rem;
+}
+.sources ul { list-style: none; display: flex; flex-direction: column; gap: .5rem; }
+.sources li {
+  color: var(--text-dim); font-size: .82rem; line-height: 1.6;
+  padding-left: 1rem; border-left: 2px solid var(--border-bright);
+}
+
+/* ── Failure Lab ── */
+.fail-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: .5rem; margin-bottom: 1.25rem;
+}
+.fail-btn { text-transform: none; letter-spacing: 0; font-size: .78rem; }
+.fail-output-box { min-height: 4rem; }
+.fail-running { color: var(--text-dim); font-family: var(--font-mono); font-size: .82rem; }
+.fail-result {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+}
+.fail-result p { color: var(--text-mono); font-size: .85rem; line-height: 1.8; margin-top: .6rem; }
+
+/* Failure category badges + inline text accents */
+.cat-badge {
+  display: inline-block; font-family: var(--font-mono); font-size: .68rem; font-weight: 700;
+  letter-spacing: .1em; padding: .2rem .55rem; border-radius: 4px; border: 1px solid;
+}
+.cat-formatting, .cat-formatting-t { color: var(--cyan); }
+.cat-mathematical, .cat-mathematical-t { color: var(--gold); }
+.cat-cryptographic, .cat-cryptographic-t { color: var(--magenta); }
+.cat-operational, .cat-operational-t { color: #ff9a3c; }
+.cat-formatting { border-color: var(--cyan); background: rgba(0,212,255,.08); }
+.cat-mathematical { border-color: var(--gold); background: rgba(255,215,0,.08); }
+.cat-cryptographic { border-color: var(--magenta); background: rgba(255,0,255,.08); }
+.cat-operational { border-color: #ff9a3c; background: rgba(255,154,60,.08); }

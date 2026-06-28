@@ -27,14 +27,16 @@ message, then split the 256-bit key into threshold shares using the prime `p = 2
 
 [**systemslibrarian.github.io/crypto-lab-shamir-gate/**](https://systemslibrarian.github.io/crypto-lab-shamir-gate/)
 
-Six interactive tabs:
+Eight interactive tabs:
 
-1. **The Gate** — choose a *t-of-n* threshold, split a text secret into share strings, and reconstruct it. Submitting fewer than *t* shares is rejected with an explanation: interpolation still returns *a* value, but it is not the secret.
-2. **Polynomial** — animates the real GF(p) polynomial on a canvas (y wraps mod p; the arithmetic stays exact), toggles share points on and off, and steps through the Lagrange interpolation term by term.
-3. **Security Proof** — fixes two shares of a 3-of-n split and shows multiple degree-2 polynomials, each passing through the same two points yet reaching a different secret at x = 0 — making "t-1 shares reveal nothing" tangible.
-4. **AES Vault** — generates an AES-256-GCM key, encrypts a message, splits the key into shares, then reconstructs the key from *t* shares and decrypts.
-5. **Real World** — where SSS is deployed: FROST (RFC 9591), HSMs, CA key ceremonies, cold storage, two-person rules, and MPC.
-6. **Adi Shamir** — a short profile of the *S* in RSA.
+1. **Lesson** — a guided eight-step arc (encode → field → polynomial → shares → fail below threshold → reconstruct → split a key → limits) with "predict before reveal" checkpoints.
+2. **The Gate** — choose a *t-of-n* threshold, split a text secret into share strings, and reconstruct it. Below *t*, interpolation still returns *a* value — surfaced explicitly as **not** the secret.
+3. **Polynomial** — animates the GF(p) polynomial on a canvas (y wraps mod p; arithmetic stays exact), toggles share points, steps through Lagrange interpolation, offers a discrete-points view, and renders a text **points table** alternative for screen readers.
+4. **Security Proof** — shows multiple degree-2 polynomials through the same two shares, plus an interactive lab: type **any** candidate secret and watch it stay consistent ("observed shares eliminate 0 of 257 possible secrets").
+5. **AES Vault** — encrypt with AES-256-GCM, split the key into shares, reconstruct from *t* shares, decrypt. Includes a callout separating encryption / secret-sharing / key-custody and a production-readiness disclaimer.
+6. **Failure Lab** — trigger eight deliberate failures (duplicate x, mixed splits, malformed input, sub-threshold, oversized secret, corrupted digit, wrong IV, wrong key share) and see each classified as *formatting*, *mathematical*, *cryptographic*, or *operational*.
+7. **Real World** — where SSS is deployed (FROST/RFC 9591, HSMs, CA ceremonies, cold storage, two-person rules, MPC) plus a Sources & standards list.
+8. **Adi Shamir** — a short profile of the *S* in RSA.
 
 ## How to Run Locally
 
@@ -47,10 +49,12 @@ npm test           # run the GF(p) + AES test suite
 npm run build      # typecheck, then build for production
 ```
 
-The test suite (`src/math.test.ts`, `src/crypto.test.ts`) verifies the field arithmetic,
-the share round-trip across **every** t-subset of n, the threshold theorem (for any
-candidate secret a consistent polynomial through the t-1 shares exists), and the
-end-to-end AES key-split → reconstruct → decrypt flow.
+The test suite (46 tests) verifies the field arithmetic, the share round-trip across
+**every** t-subset of n, the threshold theorem (for any candidate secret a consistent
+polynomial through the t-1 shares exists), the end-to-end AES key-split → reconstruct →
+decrypt flow (`math`/`crypto` specs), the share-validation failure taxonomy (`shares`
+spec), and a jsdom UI smoke test (`ui-smoke` spec) that mounts every tab and exercises
+the prediction, proof-lab, and failure-lab wiring.
 
 ## Part of the Crypto-Lab Suite
 

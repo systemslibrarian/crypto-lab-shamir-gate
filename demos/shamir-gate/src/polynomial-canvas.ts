@@ -22,6 +22,7 @@ export interface PolyCanvasConfig {
   activeShares: Set<number>; // which share indices (0-based) are selected
   threshold: number;
   showFullCurve: boolean;
+  discrete?: boolean; // true = plot only integer-x field points (no illustrative line)
 }
 
 const PAD = 60;
@@ -168,21 +169,36 @@ export function drawPolynomial(canvas: HTMLCanvasElement, config: PolyCanvasConf
 
   // Draw main polynomial curve
   if (coefficients.length > 0) {
-    ctx.strokeStyle = COLOR_CURVE;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    let first = true;
-    const steps = (n + 1) * 40;
-    for (let si = 0; si <= steps; si++) {
-      const xFrac = (si / steps) * xRange;
-      const xBig = floatToBigIntX(xFrac, p);
-      const yVal = evalPoly(coefficients, xBig, p);
-      const px = toPixelX(xFrac);
-      const py = toPixelY(yVal);
-      if (first) { ctx.moveTo(px, py); first = false; }
-      else ctx.lineTo(px, py);
+    if (config.discrete) {
+      // Discrete mode: f is defined only at integer x over GF(p). Plot the points
+      // themselves rather than a connecting line, which would imply a continuous curve.
+      ctx.fillStyle = COLOR_CURVE;
+      for (let x = 0; x <= n + 1; x++) {
+        const yVal = evalPoly(coefficients, BigInt(x), p);
+        ctx.beginPath();
+        ctx.arc(toPixelX(x), toPixelY(yVal), 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#445566';
+      ctx.font = '10px monospace';
+      ctx.fillText('Discrete: f exists only at integer x.', PAD + 4, height - 22);
+    } else {
+      ctx.strokeStyle = COLOR_CURVE;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      let first = true;
+      const steps = (n + 1) * 40;
+      for (let si = 0; si <= steps; si++) {
+        const xFrac = (si / steps) * xRange;
+        const xBig = floatToBigIntX(xFrac, p);
+        const yVal = evalPoly(coefficients, xBig, p);
+        const px = toPixelX(xFrac);
+        const py = toPixelY(yVal);
+        if (first) { ctx.moveTo(px, py); first = false; }
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
     }
-    ctx.stroke();
   }
 
   // Draw share points

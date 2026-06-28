@@ -1,6 +1,7 @@
 /**
  * Shamir-Gate — Main UI
- * Six-tab Shamir's Secret Sharing demo.
+ * Eight-tab Shamir's Secret Sharing demo: Lesson, Gate, Polynomial, Security Proof,
+ * AES Vault, Failure Lab, Real World, Adi Shamir.
  * All arithmetic: BigInt over GF(p). All randomness via crypto.getRandomValues. No float in math.
  */
 
@@ -9,6 +10,8 @@ import {
   reconstructSecret,
   lagrangeAt0,
   lagrangeEvalAt,
+  evalPoly,
+  polyForSecret,
   modInverse,
 } from './math';
 import {
@@ -23,6 +26,7 @@ import {
   AES_KEY_PRIME,
 } from './crypto';
 import { drawPolynomial, animatePolynomial } from './polynomial-canvas';
+import { validateShareSet, type FailureCategory } from './shares';
 
 // ── Theme ─────────────────────────────────────────────────────────
 const THEME_KEY = 'cv-theme';
@@ -81,13 +85,6 @@ function serializeShare(x: bigint, y: bigint, p: bigint): string {
   return `${x}:${y}:${p}`;
 }
 
-function deserializeShare(s: string): { x: bigint; y: bigint; p: bigint } | null {
-  const parts = s.trim().split(':');
-  if (parts.length < 3) return null;
-  try { return { x: BigInt(parts[0]), y: BigInt(parts[1]), p: BigInt(parts[2]) }; }
-  catch { return null; }
-}
-
 // ── Tab 1: THE GATE ───────────────────────────────────────────────
 interface GateState {
   n: number;
@@ -105,11 +102,13 @@ function updateLock(submitted: number, threshold: number): void {
   const label = el('lock-label');
   const statusMsg = submitted >= threshold ? 'Vault unlocked' : `Vault locked — ${submitted} of ${threshold} shares collected`;
   if (submitted >= threshold) {
-    svg.className = 'lock-svg unlocked';
+    // NB: SVGElement.className is a read-only SVGAnimatedString — assigning a string
+    // throws in strict mode. Must go through setAttribute/classList.
+    svg.setAttribute('class', 'lock-svg unlocked');
     label.className = 'lock-label unlocked';
     label.textContent = '🔓 UNLOCKED';
   } else {
-    svg.className = 'lock-svg locked';
+    svg.setAttribute('class', 'lock-svg locked');
     label.className = 'lock-label locked';
     label.textContent = '🔒 LOCKED';
   }
@@ -198,25 +197,13 @@ function initGateTab(): void {
   });
 
   el('gate-reconstruct').addEventListener('click', () => {
-    const lines = (el<HTMLTextAreaElement>('gate-shares-input').value).trim().split('\n').filter(Boolean);
-    const parsed = lines.map(l => deserializeShare(l)).filter(Boolean) as Array<{ x: bigint; y: bigint; p: bigint }>;
-    if (parsed.length === 0) { showResult('gate-result', 'No valid shares found.', 'error'); return; }
-
-    // Reject duplicate x-coordinates: Lagrange interpolation divides by (x_i − x_j),
-    // so two shares with the same x are not independent and break reconstruction.
-    const xs = parsed.map(s => s.x.toString());
-    if (new Set(xs).size !== xs.length) {
-      showResult('gate-result', 'Duplicate share x-coordinates detected — each share must be distinct.', 'error');
+    const validation = validateShareSet(el<HTMLTextAreaElement>('gate-shares-input').value);
+    if (!validation.ok) {
+      showResult('gate-result', validation.message!, 'error');
       return;
     }
-
-    // All shares must come from the same split — i.e. share the same prime field.
-    if (parsed.some(s => s.p !== parsed[0].p)) {
-      showResult('gate-result', 'Shares use different primes — they are from different splits.', 'error');
-      return;
-    }
-
-    const p = parsed[0].p;
+    const parsed = validation.shares;
+    const p = validation.prime!;
     try {
       const secret = reconstructSecret(parsed.map(s => ({ x: s.x, y: s.y })), p);
       const text = intToSecret(secret);
@@ -242,6 +229,14 @@ function initGateTab(): void {
       showResult('gate-result', `Error: ${(e as Error).message}`, 'error');
     }
   });
+
+  // Prediction checkpoint: prime the learner before they try a sub-threshold set.
+  el('gate-predict').appendChild(buildPrediction({
+    question: 'You hold 2 of the 3 required shares and click Reconstruct. What happens?',
+    options: ['The exact secret appears', 'A wrong value appears, looking just as valid', 'An error: not enough shares'],
+    correct: 1,
+    explain: 'Lagrange interpolation always returns <i>a</i> number; below the threshold it is simply the wrong one, with nothing to flag it. Try it above with 2 shares and watch.',
+  }));
 }
 
 // ── Tab 2: POLYNOMIAL ──────────────────────────────────────────────
@@ -256,12 +251,13 @@ interface PolyState {
   cancelAnim: (() => void) | null;
   stepIndex: number;
   lagrangeSteps: string[];
+  discrete: boolean; // viz mode: discrete field points vs. connected illustration line
 }
 
 const poly: PolyState = {
   secret: 42n, t: 2, n: 4, p: 257n,
   shares: [], coefficients: [], activeShares: new Set(),
-  cancelAnim: null, stepIndex: 0, lagrangeSteps: []
+  cancelAnim: null, stepIndex: 0, lagrangeSteps: [], discrete: false
 };
 
 function redrawPolyCanvas(): void {
@@ -275,10 +271,37 @@ function redrawPolyCanvas(): void {
     activeShares: poly.activeShares,
     threshold: poly.t,
     showFullCurve: true,
+    discrete: poly.discrete,
   });
   const label = `Polynomial curve for secret=${poly.secret}, t=${poly.t}, n=${poly.n}, p=${poly.p}. ${poly.activeShares.size >= poly.t ? 'Threshold met.' : 'Below threshold.'}`;
   canvas.setAttribute('aria-label', label);
+  renderPointsTable();
   updateLagrangeStepper();
+}
+
+// Text alternative to the canvas: a table of the plotted points, readable by
+// screen readers and by anyone who parses tables faster than graphics.
+function renderPointsTable(): void {
+  const host = el('poly-points');
+  if (poly.shares.length === 0) { host.innerHTML = ''; return; }
+  const active = poly.activeShares;
+  const met = active.size >= poly.t;
+  const rows = poly.shares.map((s, i) => `
+    <tr${active.has(i) ? ' class="row-active"' : ''}>
+      <th scope="row">Share ${i + 1}</th>
+      <td>${s.x}</td>
+      <td>${s.y}</td>
+      <td>${active.has(i) ? 'selected' : '—'}</td>
+    </tr>`).join('');
+  host.innerHTML = `
+    <table class="points-table">
+      <caption>Points on f(x) mod ${poly.p} — secret is f(0). ${active.size} of ${poly.t} needed selected (${met ? 'threshold met' : 'below threshold'}).</caption>
+      <thead><tr><th scope="col">Point</th><th scope="col">x</th><th scope="col">f(x)</th><th scope="col">In use</th></tr></thead>
+      <tbody>
+        <tr class="row-secret"><th scope="row">Secret</th><td>0</td><td>${poly.secret}</td><td>hidden</td></tr>
+        ${rows}
+      </tbody>
+    </table>`;
 }
 
 function buildLagrangeSteps(activePoints: Array<{ x: bigint; y: bigint }>, p: bigint): string[] {
@@ -388,6 +411,13 @@ function initPolyTab(): void {
   tSlider.addEventListener('input', syncSliders);
   nSlider.addEventListener('input', syncSliders);
   pSelect.addEventListener('change', () => { poly.p = BigInt(pSelect.value); });
+
+  const vizToggle = el<HTMLInputElement>('poly-viz-toggle');
+  vizToggle.addEventListener('change', () => {
+    poly.discrete = vizToggle.checked;
+    if (poly.shares.length > 0) redrawPolyCanvas();
+  });
+
   syncSliders();
 
   el('poly-generate').addEventListener('click', async () => {
@@ -554,6 +584,42 @@ function initSecurityTab(): void {
   ctx.fillStyle = '#445566';
   ctx.font = '10px monospace';
   ctx.fillText('All three polynomials pass through the known shares. Which is real?', PAD, 315);
+
+  // ── Interactive proof lab: test ANY candidate secret yourself ──
+  const tested = new Set<string>();
+  const fieldSize = Number(proof_p); // 257 candidate secrets in [0, 256]
+  const input = el<HTMLInputElement>('proof-candidate');
+  const out = el('proof-lab-out');
+  const counter = el('proof-lab-counter');
+
+  const updateCounter = () => {
+    counter.textContent =
+      `You have verified ${tested.size} secret${tested.size === 1 ? '' : 's'} — all consistent. ` +
+      `Observed shares eliminate 0 of ${fieldSize} possible secrets.`;
+  };
+  updateCounter();
+
+  el('proof-check').addEventListener('click', () => {
+    const raw = parseInt(input.value.trim(), 10);
+    if (!Number.isFinite(raw) || raw < 0 || raw > fieldSize - 1) {
+      out.className = 'result-box error';
+      out.textContent = `Enter a candidate secret in [0, ${fieldSize - 1}].`;
+      return;
+    }
+    const S = BigInt(raw);
+    const coeffs = polyForSecret(proofShares, S, proof_p);
+    const at1 = evalPoly(coeffs, 1n, proof_p);
+    const at2 = evalPoly(coeffs, 2n, proof_p);
+    const consistent = at1 === 75n && at2 === 140n;
+    tested.add(String(S));
+    updateCounter();
+
+    out.className = `result-box ${consistent ? 'success' : 'error'}`;
+    out.innerHTML = consistent
+      ? `✓ Secret = ${S}: f(x) = ${coeffs[0]} + ${coeffs[1]}x + ${coeffs[2]}x² (mod ${proof_p}) ` +
+        `→ f(1)=${at1}, f(2)=${at2}. Passes through both observed shares — indistinguishable from the real secret.`
+      : `Unexpected: f(1)=${at1}, f(2)=${at2}.`;
+  });
 }
 
 // ── Tab 4: AES VAULT ──────────────────────────────────────────────
@@ -637,15 +703,14 @@ function initAesTab(): void {
   });
 
   el('aes-decrypt').addEventListener('click', async () => {
-    const lines = (el<HTMLTextAreaElement>('aes-shares-input').value).trim().split('\n').filter(Boolean);
-    const parsed = lines.map(l => deserializeShare(l)).filter(Boolean) as Array<{ x: bigint; y: bigint; p: bigint }>;
-    if (parsed.length < vault.genT) {
-      showResult('aes-result', `Need at least ${vault.genT} shares (got ${parsed.length}).`, 'error');
+    const validation = validateShareSet(el<HTMLTextAreaElement>('aes-shares-input').value);
+    if (!validation.ok) {
+      showResult('aes-result', validation.message!, 'error');
       return;
     }
-    const aesXs = parsed.map(s => s.x.toString());
-    if (new Set(aesXs).size !== aesXs.length) {
-      showResult('aes-result', 'Duplicate share x-coordinates detected — each share must be distinct.', 'error');
+    const parsed = validation.shares;
+    if (parsed.length < vault.genT) {
+      showResult('aes-result', `Need at least ${vault.genT} shares (got ${parsed.length}).`, 'error');
       return;
     }
     const cipher = (el<HTMLInputElement>('aes-decrypt-cipher').value || vault.ciphertext).trim();
@@ -663,6 +728,319 @@ function initAesTab(): void {
   });
 }
 
+// ── Prediction checkpoints ────────────────────────────────────────
+// "Predict before reveal" turns watching into learning. Reusable across the
+// Gate tab and the guided Lesson.
+interface PredictionConfig {
+  question: string;
+  options: string[];
+  correct: number; // index of the correct option
+  explain: string; // HTML revealed after answering
+}
+
+function buildPrediction(cfg: PredictionConfig): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'predict';
+
+  const q = document.createElement('p');
+  q.className = 'predict-q';
+  q.innerHTML = `🤔 <b>Predict first:</b> ${cfg.question}`;
+
+  const opts = document.createElement('div');
+  opts.className = 'predict-options';
+
+  const reveal = document.createElement('div');
+  reveal.className = 'predict-reveal';
+  reveal.hidden = true;
+  reveal.setAttribute('role', 'status');
+  reveal.setAttribute('aria-live', 'polite');
+
+  cfg.options.forEach((opt, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'predict-opt';
+    b.textContent = opt;
+    b.addEventListener('click', () => {
+      opts.querySelectorAll('button').forEach((bb, j) => {
+        const button = bb as HTMLButtonElement;
+        button.disabled = true;
+        if (j === cfg.correct) button.classList.add('correct');
+        else if (j === i) button.classList.add('incorrect');
+      });
+      reveal.hidden = false;
+      reveal.innerHTML =
+        (i === cfg.correct ? '<b class="ok">✓ Correct.</b> ' : '<b class="no">✗ Not quite.</b> ') + cfg.explain;
+    });
+    opts.appendChild(b);
+  });
+
+  wrap.append(q, opts, reveal);
+  return wrap;
+}
+
+// ── Lesson (guided arc) ───────────────────────────────────────────
+interface LessonStep { title: string; body: string; predict?: PredictionConfig; }
+
+function getLessonSteps(): LessonStep[] {
+  const p = 257n;
+  const coeffs = [42n, 17n, 5n]; // f(x) = 42 + 17x + 5x² mod 257 — secret 42, t = 3
+  const f = (x: bigint) => evalPoly(coeffs, x, p);
+  const shares = [1n, 2n, 3n, 4n, 5n].map(x => ({ x, y: f(x) }));
+  const shareStr = shares.map(s => `(${s.x}, ${s.y})`).join(', ');
+  const below = lagrangeAt0([shares[0], shares[1]], p); // 2 of 3 → wrong
+
+  return [
+    {
+      title: '1 · Encode the secret as a number',
+      body: `Shamir's scheme works on numbers, so first turn the secret into one. A short text
+        secret becomes its UTF-8 bytes read as a big-endian integer. Here we'll use the
+        integer <b>42</b> directly to keep the arithmetic readable.`,
+    },
+    {
+      title: '2 · Pick a prime field GF(p)',
+      body: `All arithmetic happens modulo a prime <b>p</b>. We use <b>p = 257</b>. The prime must be
+        larger than the secret (so the secret fits) and larger than n (so every share gets a
+        distinct x). A prime is required so that every non-zero value has a modular inverse —
+        which is what makes division, and therefore interpolation, work.`,
+      predict: {
+        question: 'Why must p be larger than the secret?',
+        options: ['So shares look random', 'So the secret fits in the field [0, p)', 'So reconstruction is faster'],
+        correct: 1,
+        explain: 'Everything is reduced mod p, so a secret ≥ p would collapse to secret mod p — a different value. The field must be able to represent the secret exactly.',
+      },
+    },
+    {
+      title: '3 · Build a degree t−1 polynomial',
+      body: `For a threshold of <b>t = 3</b>, build a degree-2 polynomial whose constant term is the
+        secret and whose other coefficients are random:
+        <div class="lesson-math">f(x) = 42 + 17·x + 5·x²  (mod 257)</div>
+        The secret is <b>f(0) = 42</b>. The degree is exactly t−1, which is why it takes t points
+        to pin the curve down.`,
+    },
+    {
+      title: '4 · Generate shares as points on the curve',
+      body: `Each share is a point <b>(x, f(x) mod p)</b> for x = 1, 2, 3, …, n. Evaluating f at
+        x = 1..5 gives the five shares:
+        <div class="lesson-math">${shareStr}</div>
+        Hand each point to a different custodian. No single point reveals the curve.`,
+    },
+    {
+      title: '5 · Try fewer than t shares',
+      body: `With only <b>2</b> of the 3 required shares, interpolation still returns a number —
+        here it produces <b>${below}</b>, which is <i>not</i> 42. Worse, nothing flags it as wrong.
+        Below the threshold every secret in [0, 256] is equally consistent with what you hold.`,
+      predict: {
+        question: 'Do 2 of these shares reveal more about the secret than 1 share does?',
+        options: ['Yes — each share narrows it down', 'No — until you reach t, you learn nothing'],
+        correct: 1,
+        explain: 'This is the heart of the theorem. Any set of t−1 or fewer shares is consistent with every possible secret, so additional sub-threshold shares add zero information.',
+      },
+    },
+    {
+      title: '6 · Reconstruct with t shares',
+      body: `Collect any <b>3</b> shares and run Lagrange interpolation at x = 0. Because three points
+        uniquely determine a degree-2 polynomial, you recover the exact curve — and its constant
+        term <b>f(0) = 42</b>. The "Polynomial" tab animates this step by step.`,
+    },
+    {
+      title: '7 · Split a key, not the message',
+      body: `In practice you don't secret-share a whole file. You encrypt the data with AES, then
+        secret-share the short AES <b>key</b>. The "AES Vault" tab does exactly this: encrypt →
+        split the key → reconstruct the key from t shares → decrypt.`,
+      predict: {
+        question: 'When you combine AES with Shamir, what does Shamir actually protect?',
+        options: ['The ciphertext', 'The AES key', 'Both equally'],
+        correct: 1,
+        explain: 'AES-GCM protects the data; Shamir protects custody of the key. Keeping the two roles distinct is the canonical pattern — don\'t use Shamir as a bulk file cipher.',
+      },
+    },
+    {
+      title: '8 · Know what SSS does NOT solve',
+      body: `Plain Shamir assumes an honest dealer and honest shares. It does <b>not</b> detect a bad
+        dealer, verify that a share is valid, authenticate who submitted a share, prevent share
+        copying, protect metadata, or recover from too many lost shares. Those need more machinery:
+        <b>VSS</b> / Feldman–Pedersen commitments for verifiable shares, <b>FROST</b> for threshold
+        signatures without ever reconstructing the key, and HSM ceremonies for operational custody.
+        See the "Failure Lab" tab to trigger several of these limits yourself.`,
+    },
+  ];
+}
+
+let lessonIndex = 0;
+const LESSON_STEPS = getLessonSteps();
+
+function renderLesson(): void {
+  const step = LESSON_STEPS[lessonIndex];
+  const host = el('lesson-body');
+  host.innerHTML = `
+    <div class="lesson-progress" role="status" aria-live="polite">Step ${lessonIndex + 1} of ${LESSON_STEPS.length}</div>
+    <h3>${step.title}</h3>
+    <div class="lesson-text">${step.body}</div>
+  `;
+  if (step.predict) host.appendChild(buildPrediction(step.predict));
+
+  const nav = el('lesson-nav');
+  nav.innerHTML = `
+    <button class="btn-secondary" id="lesson-back" type="button" ${lessonIndex === 0 ? 'disabled' : ''}>← Back</button>
+    ${lessonIndex < LESSON_STEPS.length - 1
+      ? `<button class="btn-primary" id="lesson-next" type="button">Next →</button>`
+      : `<button class="btn-secondary" id="lesson-restart" type="button">↻ Start over</button>`}
+  `;
+  el('lesson-back')?.addEventListener('click', () => { if (lessonIndex > 0) { lessonIndex--; renderLesson(); } });
+  el('lesson-next')?.addEventListener('click', () => { if (lessonIndex < LESSON_STEPS.length - 1) { lessonIndex++; renderLesson(); } });
+  el('lesson-restart')?.addEventListener('click', () => { lessonIndex = 0; renderLesson(); });
+}
+
+function initLessonTab(): void {
+  renderLesson();
+}
+
+// ── Failure Lab ───────────────────────────────────────────────────
+// Let learners break things safely, then classify the failure: is it the data
+// format, the field math, the cryptography, or the operational process?
+const CATEGORY_LABEL: Record<FailureCategory, string> = {
+  formatting: 'FORMATTING',
+  mathematical: 'MATHEMATICAL',
+  cryptographic: 'CRYPTOGRAPHIC',
+  operational: 'OPERATIONAL',
+};
+
+function categoryBadge(cat: FailureCategory): string {
+  return `<span class="cat-badge cat-${cat}">${CATEGORY_LABEL[cat]}</span>`;
+}
+
+interface FailScenario {
+  label: string;
+  run: () => Promise<{ category: FailureCategory; detail: string }>;
+}
+
+function initFailureLab(): void {
+  // A fixed reference split so the "wrong answer" cases can name the true secret.
+  const p = 257n;
+  const coeffs = [42n, 17n, 5n]; // secret 42, t = 3
+  const ref = [1n, 2n, 3n, 4n, 5n].map(x => ({ x, y: evalPoly(coeffs, x, p) }));
+
+  const scenarios: FailScenario[] = [
+    {
+      label: 'Duplicate x-coordinates',
+      run: async () => {
+        const v = validateShareSet(`${ref[0].x}:${ref[0].y}:257\n${ref[0].x}:99:257`);
+        return { category: v.category!, detail: v.message! };
+      },
+    },
+    {
+      label: 'Shares from different splits',
+      run: async () => {
+        const v = validateShareSet('1:75:257\n2:140:263');
+        return { category: v.category!, detail: v.message! };
+      },
+    },
+    {
+      label: 'Malformed share text',
+      run: async () => {
+        const v = validateShareSet('1:75:257\nnot-a-share');
+        return { category: v.category!, detail: v.message! };
+      },
+    },
+    {
+      label: 'Fewer than t shares',
+      run: async () => {
+        const got = lagrangeAt0([ref[0], ref[1]], p); // 2 of 3
+        return {
+          category: 'mathematical',
+          detail: `Two of three shares interpolate to ${got}, but the real secret is 42. ` +
+            `No error is raised — t−1 shares produce a confident, wrong answer. The threshold is the whole point.`,
+        };
+      },
+    },
+    {
+      label: 'Secret larger than p',
+      run: async () => {
+        try {
+          await generateShares(300n, 2, 3, 257n);
+          return { category: 'mathematical', detail: 'Unexpectedly succeeded.' };
+        } catch (e) {
+          return {
+            category: 'mathematical',
+            detail: `generateShares rejected it: "${(e as Error).message}". 300 cannot be represented in GF(257); ` +
+              `the field must be larger than the secret.`,
+          };
+        }
+      },
+    },
+    {
+      label: 'One corrupted digit',
+      run: async () => {
+        const corrupted = [{ x: ref[0].x, y: (ref[0].y + 1n) % p }, ref[1], ref[2]];
+        const got = lagrangeAt0(corrupted, p);
+        return {
+          category: 'operational',
+          detail: `One digit of a share was changed. Reconstruction returned ${got} instead of 42 — silently. ` +
+            `Plain x:y:p shares carry no integrity check, so a transcription error yields a wrong secret with no warning. ` +
+            `This is why operational share formats add a checksum.`,
+        };
+      },
+    },
+    {
+      label: 'Wrong AES IV',
+      run: async () => {
+        const key = await generateAESKey();
+        const { ciphertext, iv } = await aesEncrypt(key, 'launch at dawn');
+        const wrongIv = (iv[0] === '0' ? 'f' : '0') + iv.slice(1);
+        try {
+          await aesDecrypt(key, ciphertext, wrongIv);
+          return { category: 'cryptographic', detail: 'Unexpectedly succeeded.' };
+        } catch {
+          return {
+            category: 'cryptographic',
+            detail: 'Right key, wrong IV → AES-GCM authentication failed and refused to return any plaintext. ' +
+              'GCM verifies integrity before it will decrypt.',
+          };
+        }
+      },
+    },
+    {
+      label: 'Wrong AES key share',
+      run: async () => {
+        const key = await generateAESKey();
+        const { ciphertext, iv } = await aesEncrypt(key, 'launch at dawn');
+        const { shares } = await generateShares(keyToInt(key), 3, 5, AES_KEY_PRIME);
+        const bad = [{ x: shares[0].x, y: (shares[0].y + 1n) % AES_KEY_PRIME }, shares[1], shares[2]];
+        const wrongKey = intToKey(reconstructSecret(bad, AES_KEY_PRIME));
+        try {
+          await aesDecrypt(wrongKey, ciphertext, iv);
+          return { category: 'cryptographic', detail: 'Unexpectedly succeeded.' };
+        } catch {
+          return {
+            category: 'cryptographic',
+            detail: 'One corrupted key share reconstructs the wrong key. AES-GCM then fails authentication ' +
+              'rather than returning garbage plaintext — the failure is caught, not silent.',
+          };
+        }
+      },
+    },
+  ];
+
+  const grid = el('fail-scenarios');
+  scenarios.forEach(sc => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn-secondary fail-btn';
+    b.textContent = sc.label;
+    b.addEventListener('click', async () => {
+      const out = el('fail-output');
+      out.innerHTML = '<p class="fail-running">Running…</p>';
+      try {
+        const r = await sc.run();
+        out.innerHTML = `<div class="fail-result">${categoryBadge(r.category)}<p>${r.detail}</p></div>`;
+      } catch (e) {
+        out.innerHTML = `<div class="fail-result">${categoryBadge('operational')}<p>Unexpected: ${(e as Error).message}</p></div>`;
+      }
+    });
+    grid.appendChild(b);
+  });
+}
+
 // ── Render the HTML shell ─────────────────────────────────────────
 function renderShell(): void {
   const app = document.getElementById('app')!;
@@ -677,16 +1055,31 @@ function renderShell(): void {
 
 <div class="tabs-wrap">
   <div class="tab-list" role="tablist" aria-label="Demo sections">
-    <button class="tab-btn" role="tab" aria-selected="true"  aria-controls="tab-gate"     id="btn-gate"     tabindex="0">The Gate</button>
+    <button class="tab-btn" role="tab" aria-selected="true"  aria-controls="tab-lesson"  id="btn-lesson"  tabindex="0">Lesson</button>
+    <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-gate"     id="btn-gate"     tabindex="-1">The Gate</button>
     <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-poly"     id="btn-poly"     tabindex="-1">Polynomial</button>
     <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-proof"    id="btn-proof"    tabindex="-1">Security Proof</button>
     <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-aes"      id="btn-aes"      tabindex="-1">AES Vault</button>
+    <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-fail"     id="btn-fail"     tabindex="-1">Failure Lab</button>
     <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-rw"       id="btn-rw"       tabindex="-1">Real World</button>
     <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-shamir"   id="btn-shamir"   tabindex="-1">Adi Shamir</button>
   </div>
 
+  <!-- ── TAB 0: LESSON (guided arc) ── -->
+  <div class="tab-panel active" id="tab-lesson" role="tabpanel" aria-labelledby="btn-lesson" tabindex="0">
+    <div class="lesson-wrap">
+      <p class="lesson-intro">A guided walk through Shamir's Secret Sharing — encode, split, fail below
+      threshold, reconstruct, and learn the boundary between the math and a real custody system.
+      Predict at each checkpoint before revealing the answer.</p>
+      <div class="panel lesson-panel">
+        <div id="lesson-body"></div>
+        <div class="btn-row lesson-nav" id="lesson-nav" style="margin-top:1.25rem"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── TAB 1: THE GATE ── -->
-  <div class="tab-panel active" id="tab-gate" role="tabpanel" aria-labelledby="btn-gate" tabindex="0">
+  <div class="tab-panel" id="tab-gate" role="tabpanel" aria-labelledby="btn-gate" tabindex="0">
     <div class="two-col">
       <div class="panel">
         <h3>Vault Status</h3>
@@ -739,6 +1132,7 @@ function renderShell(): void {
           </div>
           <button class="btn-secondary" id="gate-reconstruct" type="button">Reconstruct</button>
           <div class="result-box" id="gate-result" role="status" aria-live="polite"></div>
+          <div id="gate-predict" style="margin-top:1rem"></div>
         </div>
       </div>
     </div>
@@ -787,7 +1181,12 @@ function renderShell(): void {
           <div class="poly-canvas-wrap">
             <canvas id="poly-canvas" role="img" aria-label="Polynomial curve visualization"></canvas>
           </div>
+          <label class="viz-toggle">
+            <input type="checkbox" id="poly-viz-toggle">
+            Discrete field points only (GF(p) is defined only at integer x; the line is an illustration)
+          </label>
           <div class="share-toggles" id="poly-share-toggles"></div>
+          <div id="poly-points" class="points-wrap"></div>
         </div>
       </div>
     </div>
@@ -812,6 +1211,20 @@ function renderShell(): void {
       <div id="proof-candidates"></div>
     </div>
 
+    <div class="proof-lab panel">
+      <h3>Try it yourself</h3>
+      <p style="color:var(--text-dim);font-size:.82rem;margin-bottom:.75rem">
+        Type <em>any</em> secret in [0, 256]. We'll build the unique degree-2 polynomial through
+        (1,75) and (2,140) with that secret at f(0) — and show it fits the observed shares just as well.
+      </p>
+      <div class="proof-lab-row">
+        <input type="number" id="proof-candidate" min="0" max="256" value="123" aria-label="Candidate secret">
+        <button class="btn-primary" id="proof-check" type="button">Check candidate</button>
+      </div>
+      <div class="result-box" id="proof-lab-out" role="status" aria-live="polite" style="display:block"></div>
+      <p class="proof-lab-counter" id="proof-lab-counter" role="status" aria-live="polite"></p>
+    </div>
+
     <div class="proof-canvas-wrap">
       <canvas id="proof-canvas" role="img" aria-label="Three polynomials consistent with the same two shares, each reaching a different secret at x=0"></canvas>
     </div>
@@ -834,6 +1247,17 @@ function renderShell(): void {
 
   <!-- ── TAB 4: AES VAULT ── -->
   <div class="tab-panel" id="tab-aes" role="tabpanel" aria-labelledby="btn-aes" tabindex="0">
+    <div class="concept-callout">
+      <h3>Three different jobs — keep them straight</h3>
+      <div class="concept-grid">
+        <div><b>Encryption</b><span>AES-256-GCM protects the <em>data</em>.</span></div>
+        <div><b>Secret sharing</b><span>Shamir splits a <em>value</em> into t-of-n shares.</span></div>
+        <div><b>Key custody</b><span>Here, the value being shared is the AES <em>key</em>.</span></div>
+      </div>
+      <p class="concept-pattern">Canonical pattern: <b>encrypt the data with AES, then secret-share the key.</b>
+      Shamir is not a bulk file cipher — you share the short key, not the whole message.</p>
+    </div>
+
     <div class="step-block">
       <div class="step-num">Step 1 — Configure</div>
       <h3>Encrypt a Message with a Split Key</h3>
@@ -898,6 +1322,28 @@ function renderShell(): void {
       Used in: HSMs, nuclear launch protocols, certificate authorities,
       cryptocurrency cold storage, FROST threshold signatures.
     </div>
+
+    <div class="disclaimer">
+      <strong>Not a custody product.</strong> This demo implements the math of Shamir Secret Sharing
+      and uses real browser cryptography for AES-GCM. It is not a complete key-custody system.
+      Production systems also need authenticated share formats, identity, audit logs, secure storage,
+      key ceremonies, backups, verifiable shares (VSS), and incident procedures.
+    </div>
+  </div>
+
+  <!-- ── TAB 4b: FAILURE LAB ── -->
+  <div class="tab-panel" id="tab-fail" role="tabpanel" aria-labelledby="btn-fail" tabindex="0">
+    <div class="panel">
+      <h3>Break it on purpose</h3>
+      <p style="color:var(--text-dim);font-size:.85rem;margin-bottom:1rem">
+        Each button triggers a real failure, then classifies it. Learning to tell these four apart —
+        <b class="cat-formatting-t">formatting</b>, <b class="cat-mathematical-t">mathematical</b>,
+        <b class="cat-cryptographic-t">cryptographic</b>, and <b class="cat-operational-t">operational</b> —
+        is half of debugging a threshold system.
+      </p>
+      <div class="fail-grid" id="fail-scenarios"></div>
+      <div id="fail-output" class="fail-output-box" role="status" aria-live="polite"></div>
+    </div>
   </div>
 
   <!-- ── TAB 5: REAL WORLD ── -->
@@ -934,6 +1380,17 @@ function renderShell(): void {
           </div>
         </div>
       `).join('')}
+    </div>
+
+    <div class="sources">
+      <h3>Sources &amp; standards</h3>
+      <ul>
+        <li>Adi Shamir, "How to Share a Secret," <i>Communications of the ACM</i> 22(11), 1979.</li>
+        <li>G. R. Blakley, "Safeguarding Cryptographic Keys," AFIPS 1979 (independent, geometric scheme).</li>
+        <li>RFC 9591 — The Flexible Round-Optimized Schnorr Threshold (FROST) signature scheme, 2024.</li>
+        <li>NIST SP 800-38D — Galois/Counter Mode (GCM) for authenticated encryption.</li>
+        <li>Feldman (1987) and Pedersen (1991) — Verifiable Secret Sharing commitments.</li>
+      </ul>
     </div>
   </div>
 
@@ -995,9 +1452,11 @@ document.addEventListener('DOMContentLoaded', () => {
   renderShell();
   initTheme();
   initTabs();
+  initLessonTab();
   initGateTab();
   initPolyTab();
   initAesTab();
+  initFailureLab();
   // Security proof is static — render on load
   // Wait one tick so DOM is ready
   setTimeout(() => initSecurityTab(), 0);
