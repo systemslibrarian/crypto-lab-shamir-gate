@@ -1398,8 +1398,8 @@ function renderShell(): void {
   <div class="tab-panel" id="tab-shamir" role="tabpanel" aria-labelledby="btn-shamir" tabindex="0">
     <div class="bio-wrap">
       <div>
-        <div class="bio-avatar" aria-label="Geometric portrait of Adi Shamir">
-          <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <div class="bio-avatar" role="img" aria-label="Geometric portrait of Adi Shamir">
+          <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <circle cx="50" cy="35" r="22" fill="#1e2040" stroke="#ffd700" stroke-width="2"/>
             <polygon points="50,18 68,50 32,50" fill="none" stroke="#00d4ff" stroke-width="1.5"/>
             <circle cx="50" cy="35" r="8" fill="#ffd700" opacity=".6"/>

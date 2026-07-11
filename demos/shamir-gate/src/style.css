@@ -20,7 +20,12 @@
   --green: #00ff88;
   --magenta: #ff00ff;
   --red: #ff3366;
+  --orange-text: #ff9a3c;
   --tab-active-border: var(--gold);
+  /* Ink that sits on the --cyan accent fill (btn-primary, skip link). On the
+     bright dark-theme cyan, black reads best; light theme overrides to white
+     because its cyan is a dark blue. */
+  --on-accent: #000;
   --radius: 6px;
   --font-sans: system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
@@ -33,13 +38,17 @@
   --border: #c0c8e0;
   --border-bright: #8090d0;
   --text: #1a1e40;
-  --text-dim: #5060a0;
+  --text-dim: #45508c; /* darkened for >=4.5:1 on light --bg3 tints */
   --text-mono: #1a2040;
-  --gold: #b8900a;
-  --cyan: #0070c0;
-  --green: #007040;
-  --magenta: #b000b0;
-  --red: #cc0033;
+  --gold: #7a5c00;   /* darkened: >=4.5:1 as bold/regular text on light tints */
+  --cyan: #08558c;   /* darkened: >=4.5:1 as text on light tints */
+  --green: #006638;
+  --magenta: #9c009c;
+  --red: #bb002e;
+  --orange-text: #9a5000; /* darkened for >=4.5:1 as text on light tints */
+  /* On the light-theme cyan (a dark blue) white ink gives the strongest fill
+     contrast for primary buttons / skip link. */
+  --on-accent: #fff;
 }
 
 html { font-size: 16px; scroll-behavior: smooth; }
@@ -54,7 +63,7 @@ body {
 
 .skip-link {
   position: absolute; top: -999px; left: 0; z-index: 100;
-  background: var(--cyan); color: #000; padding: .5rem 1rem;
+  background: var(--cyan); color: var(--on-accent); padding: .5rem 1rem;
   font-weight: bold;
 }
 .skip-link:focus { top: 0; }
@@ -340,8 +349,8 @@ button {
 }
 button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 
-.btn-primary { background: var(--cyan); color: #000; }
-.btn-primary:hover { background: #00bbee; }
+.btn-primary { background: var(--cyan); color: var(--on-accent); }
+.btn-primary:hover { background: color-mix(in srgb, var(--cyan) 85%, #fff); }
 
 .btn-secondary {
   background: var(--bg3);
@@ -684,9 +693,8 @@ button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
   font-size: .73rem;
   color: var(--cyan);
   text-decoration: none;
-  opacity: .8;
 }
-.rw-card-link:hover { opacity: 1; }
+.rw-card-link:hover { color: var(--text); }
 
 /* ── Biography tab ── */
 .bio-wrap {
@@ -764,6 +772,14 @@ footer {
   font-style: italic;
   margin-top: 3rem;
 }
+/* Inline links in the footer text block: color alone is not enough (WCAG 1.4.1),
+   so keep a persistent underline, and use the accent hue which meets AA on the
+   footer background in both themes. */
+footer a {
+  color: var(--cyan);
+  text-decoration: underline;
+}
+footer a:hover { color: var(--text); }
 
 /* ── Utility ── */
 .sr-only {
@@ -939,7 +955,10 @@ footer {
 .cat-formatting, .cat-formatting-t { color: var(--cyan); }
 .cat-mathematical, .cat-mathematical-t { color: var(--gold); }
 .cat-cryptographic, .cat-cryptographic-t { color: var(--magenta); }
-.cat-operational, .cat-operational-t { color: #ff9a3c; }
+/* Inline text uses the AA-safe per-theme orange; the badge swatch below keeps
+   the bright hue for its border/fill only. */
+.cat-operational-t { color: var(--orange-text); }
+.cat-operational { color: var(--orange-text); }
 .cat-formatting { border-color: var(--cyan); background: rgba(0,212,255,.08); }
 .cat-mathematical { border-color: var(--gold); background: rgba(255,215,0,.08); }
 .cat-cryptographic { border-color: var(--magenta); background: rgba(255,0,255,.08); }

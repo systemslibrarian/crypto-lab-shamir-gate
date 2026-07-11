@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:a11y": "playwright test",
     "deploy": "npm run build && gh-pages -d dist"
   },
   "keywords": [
@@ -26,6 +27,8 @@
   "author": "Crypto Compare Portfolio",
   "license": "MIT",
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@playwright/test": "^1.61.1",
     "@types/node": "^20.10.0",
     "gh-pages": "^6.3.0",
     "jsdom": "^29.1.1",

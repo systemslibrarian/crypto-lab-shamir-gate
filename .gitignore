@@ -23,6 +23,11 @@ build/
 coverage/
 .nyc_output/
 
+# Playwright (a11y gate)
+test-results/
+playwright-report/
+.pw-browsers/
+
 # Logs
 *.log
 npm-debug.log*
