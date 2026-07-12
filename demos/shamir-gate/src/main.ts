@@ -1045,11 +1045,16 @@ function initFailureLab(): void {
 function renderShell(): void {
   const app = document.getElementById('app')!;
   app.innerHTML = `
-<header class="site-header" id="main-content">
-  <div class="header-text">
-    <h1>Shamir-Gate</h1>
-    <p>Shamir's Secret Sharing — GF(p) polynomial, Lagrange interpolation, AES-256-GCM vault</p>
+<header class="cl-hero" id="main-content">
+  <div class="cl-hero-main">
+    <h1 class="cl-hero-title">Shamir-Gate</h1>
+    <p class="cl-hero-sub">Shamir's Secret Sharing · t-of-n · GF(p) · Lagrange</p>
+    <p class="cl-hero-desc">Split a secret into n shares as points on a degree-(t−1) polynomial over GF(p), then watch t of them reconstruct it via Lagrange interpolation while fewer stay locked.</p>
   </div>
+  <aside class="cl-hero-why" aria-label="Why it matters">
+    <span class="cl-hero-why-label">WHY IT MATTERS</span>
+    <p class="cl-hero-why-text">No single keyholder can leak or lose the secret, and any t trustees can recover it. That trade-off underpins crypto-wallet custody, root-key escrow, and quorum access controls where fewer than t shares reveal nothing at all.</p>
+  </aside>
   <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle theme">☀️</button>
 </header>
 
