@@ -1047,7 +1047,7 @@ function renderShell(): void {
   app.innerHTML = `
 <header class="cl-hero" id="main-content">
   <div class="cl-hero-main">
-    <h1 class="cl-hero-title">Shamir-Gate</h1>
+    <h1 class="cl-hero-title">Shamir Gate</h1>
     <p class="cl-hero-sub">Shamir's Secret Sharing · t-of-n · GF(p) · Lagrange</p>
     <p class="cl-hero-desc">Split a secret into n shares as points on a degree-(t−1) polynomial over GF(p), then watch t of them reconstruct it via Lagrange interpolation while fewer stay locked.</p>
   </div>
