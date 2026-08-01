@@ -76,7 +76,6 @@ body {
 }
 
 /* ── Header ── */
-/* BEGIN cl-hero standard — managed, keep in sync across fleet */
 /* Accent maps to this demo's --cyan; --border/--text-dim are its own theme
    vars, so the hero passes axe contrast in both dark and light themes. */
 .cl-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:clamp(1rem,4vw,3rem);flex-wrap:wrap;margin:clamp(1rem,3vw,2rem) 0 1.5rem;}
@@ -87,8 +86,7 @@ body {
 .cl-hero-why{flex:0 1 min(40%,26rem);min-width:min(100%,15rem);border:1px solid var(--border);border-radius:10px;padding:.85rem 1.05rem;background:color-mix(in oklab,var(--cyan) 6%,transparent);}
 .cl-hero-why-label{display:block;font-size:.68rem;font-weight:700;letter-spacing:.14em;color:var(--text-dim);}
 .cl-hero-why-text{margin:.35rem 0 0;font-size:.95rem;line-height:1.5;color:var(--text);}
-@media (max-width:640px){.cl-hero{flex-direction:column;}.cl-hero-why{flex-basis:auto;width:100%;}}
-/* END cl-hero standard */
+@media (max-width:640px){.cl-hero{flex-direction:column;}.cl-hero-why{flex-basis:auto;width:100%;}.cl-hero-main{flex-basis:auto;min-width:0;}}
 
 .theme-toggle {
   background: var(--bg3);
@@ -300,6 +298,12 @@ select {
 }
 input:focus, textarea:focus, select:focus {
   border-color: var(--cyan);
+}
+/* `outline: none` above strips the UA focus ring; restore a visible one for
+   keyboard users (border-color alone is not a reliable focus indicator). */
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
 }
 
 textarea { resize: vertical; min-height: 80px; }
@@ -951,3 +955,15 @@ footer a:hover { color: var(--text); }
 .cat-mathematical { border-color: var(--gold); background: rgba(255,215,0,.08); }
 .cat-cryptographic { border-color: var(--magenta); background: rgba(255,0,255,.08); }
 .cat-operational { border-color: #ff9a3c; background: rgba(255,154,60,.08); }
+
+
+/* Comfortable tap targets on touch devices without bulking up the mouse UI. */
+@media (pointer: coarse) {
+  #app button,
+  #app select,
+  #app input[type="text"],
+  #app input[type="number"],
+  #app summary {
+    min-height: 44px;
+  }
+}
