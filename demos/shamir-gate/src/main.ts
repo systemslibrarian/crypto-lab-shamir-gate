@@ -182,12 +182,23 @@ function initGateTab(): void {
       });
       el('gate-shares-display').style.display = 'block';
 
-      const degree = gate.t - 1;
+      // Actual degree of the drawn polynomial. Every non-constant coefficient is
+      // uniform over [0, p), so the top one can legitimately come out 0 and the
+      // degree can land below t-1 (probability 1/p). Report what was actually
+      // drawn rather than asserting t-1 — the bound is "at most t-1", and any
+      // t shares still reconstruct either way.
+      let degree = coefficients.length - 1;
+      while (degree > 0 && coefficients[degree] === 0n) degree--;
+      const maxDegree = gate.t - 1;
       const coeffStr = coefficients.map((c, i) => i === 0 ? `${c}` : `${c}x${i > 1 ? `^${i}` : ''}`).join(' + ');
       el('gate-meta').innerHTML = `
         Prime used: <span>p = ${prime}</span><br>
         Secret as integer: <span>${secretInt}</span><br>
-        Polynomial degree: <span>${degree}</span> (= threshold - 1)<br>
+        Polynomial degree: <span>${degree}</span> (bound: at most threshold - 1 = ${maxDegree})${
+          degree < maxDegree
+            ? ` &mdash; the x<sup>${maxDegree}</sup> coefficient was drawn as 0. That is allowed and harmless: coefficients are uniform over the whole field, any ${gate.t} shares still reconstruct, and ${gate.t - 1} shares still reveal nothing.`
+            : ''
+        }<br>
         f(x) = <span>${coeffStr}</span> (mod p)
       `;
       el('gate-meta').style.display = 'block';
@@ -614,10 +625,24 @@ function initSecurityTab(): void {
     tested.add(String(S));
     updateCounter();
 
+    // The fit is the unique polynomial of degree AT MOST 2. For exactly one
+    // candidate in the field its x² term vanishes (S = 10 for these shares) and
+    // the fit is a straight line. That candidate is not an exception to the
+    // theorem — it is a perfectly ordinary output of the splitter, which draws
+    // every non-constant coefficient uniformly from [0, p) including 0. Excluding
+    // it would be the one way to make this tab's claim false.
+    const degenerate = coeffs[2] === 0n;
     out.className = `result-box ${consistent ? 'success' : 'error'}`;
     out.innerHTML = consistent
       ? `✓ Secret = ${S}: f(x) = ${coeffs[0]} + ${coeffs[1]}x + ${coeffs[2]}x² (mod ${proof_p}) ` +
-        `→ f(1)=${at1}, f(2)=${at2}. Passes through both observed shares — indistinguishable from the real secret.`
+        `→ f(1)=${at1}, f(2)=${at2}. Passes through both observed shares — indistinguishable from the real secret.` +
+        (degenerate
+          ? ` <b>Note:</b> the x² coefficient came out 0, so this fit is degree 1 — a straight line. ` +
+            `It is still a legitimate output of the splitter, which draws every non-constant ` +
+            `coefficient uniformly from [0, p), 0 included. Forcing the leading coefficient nonzero ` +
+            `would make this the one secret you could rule out, and "eliminates 0 of ${fieldSize}" ` +
+            `would become "eliminates 1 of ${fieldSize}".`
+          : '')
       : `Unexpected: f(1)=${at1}, f(2)=${at2}.`;
   });
 }
@@ -811,11 +836,15 @@ function getLessonSteps(): LessonStep[] {
     },
     {
       title: '3 · Build a degree t−1 polynomial',
-      body: `For a threshold of <b>t = 3</b>, build a degree-2 polynomial whose constant term is the
-        secret and whose other coefficients are random:
+      body: `For a threshold of <b>t = 3</b>, build a polynomial with <b>t = 3</b> coefficients whose
+        constant term is the secret and whose other two are drawn uniformly at random from the
+        whole field [0, p):
         <div class="lesson-math">f(x) = 42 + 17·x + 5·x²  (mod 257)</div>
-        The secret is <b>f(0) = 42</b>. The degree is exactly t−1, which is why it takes t points
-        to pin the curve down.`,
+        The secret is <b>f(0) = 42</b>. The degree is <i>at most</i> t−1, which is why it takes t
+        points to pin the curve down. "At most", not "exactly": the x² coefficient is random like
+        any other, so 1 time in 257 it comes out 0 and the curve is a straight line. That is not a
+        bug to be sampled away — excluding it would make one candidate secret impossible and hand
+        a 2-share attacker a free elimination.`,
     },
     {
       title: '4 · Generate shares as points on the curve',
@@ -1210,17 +1239,29 @@ function renderShell(): void {
         Known shares: <b style="color:var(--gold)">(1, 75)</b> and <b style="color:var(--gold)">(2, 140)</b>. Prime: p = 257.
       </p>
       <p style="color:var(--text-dim);margin-bottom:.75rem">
-        For every possible secret S ∈ [0, 256], there exists exactly one degree-2 polynomial
-        that passes through (1,75) and (2,140) with f(0) = S. Here are three examples:
+        For every possible secret S ∈ [0, 256] — all 257 of them, no exceptions — there exists
+        exactly one polynomial of degree <b>at most 2</b> passing through (1,75) and (2,140)
+        with f(0) = S. Here are three examples:
       </p>
       <div id="proof-candidates"></div>
+      <p style="color:var(--text-dim);margin-top:.75rem;font-size:.78rem">
+        Note the "at most". For S = 10 the fit is f(x) = 10 + 65x — degree 1, because its x²
+        coefficient works out to 0. The generator on the Gate tab draws <em>every</em> non-constant
+        coefficient uniformly from [0, p), 0 included, so that polynomial is an ordinary output and
+        S = 10 is exactly as likely as any other secret. A generator that forced the leading
+        coefficient nonzero "so the degree is exactly t−1" could never produce it — which would let
+        a holder of these two shares rule S = 10 out, and would make the sentence above false for 1
+        of the 257 secrets. Perfect secrecy is an all-257-or-nothing claim, so this demo does not
+        impose that restriction.
+      </p>
     </div>
 
     <div class="proof-lab panel">
       <h3>Try it yourself</h3>
       <p style="color:var(--text-dim);font-size:.82rem;margin-bottom:.75rem">
-        Type <em>any</em> secret in [0, 256]. We'll build the unique degree-2 polynomial through
-        (1,75) and (2,140) with that secret at f(0) — and show it fits the observed shares just as well.
+        Type <em>any</em> secret in [0, 256]. We'll build the unique polynomial of degree at most 2
+        through (1,75) and (2,140) with that secret at f(0) — and show it fits the observed shares
+        just as well. Try S = 10 to see the one case where the x² term vanishes.
       </p>
       <div class="proof-lab-row">
         <input type="number" id="proof-candidate" min="0" max="256" value="123" aria-label="Candidate secret">

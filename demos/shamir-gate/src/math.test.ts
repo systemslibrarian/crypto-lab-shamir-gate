@@ -96,12 +96,95 @@ describe('generateShares', () => {
     }
   });
 
-  it('builds a polynomial of degree exactly t-1 (leading coefficient ≠ 0)', async () => {
+  // NOTE: this replaces an assertion that `coefficients[t - 1] !== 0n` — "degree
+  // exactly t-1". That assertion was the bug, not a guarantee. Restricting the
+  // leading coefficient to [1, p) makes exactly one candidate secret unreachable
+  // from any given set of t-1 shares, so a sub-threshold holder can rule it out
+  // and the Security Proof tab's claim is false by 1/p. The polynomial has t
+  // coefficients and degree AT MOST t-1; every non-constant one is uniform over
+  // the full field.
+  it('builds a polynomial with t coefficients and the secret at f(0)', async () => {
     for (const t of [2, 3, 4, 5]) {
       const { coefficients } = await generateShares(7n, t, t, P);
       expect(coefficients).toHaveLength(t);
-      expect(coefficients[t - 1]).not.toBe(0n);
+      expect(coefficients[0]).toBe(7n);
+      expect(evalPoly(coefficients, 0n, P)).toBe(7n);
     }
+  });
+
+  it('draws the LEADING coefficient uniformly over [0, p), 0 included', async () => {
+    // Over a small field, 0 must turn up for the leading coefficient at roughly
+    // the uniform rate. With p = 257 and 6000 draws the expected count is ~23, so
+    // seeing none has probability ~e^-23: a rejection-sampling regression fails
+    // this essentially every run.
+    const p = 257n;
+    const DRAWS = 6000;
+    let zeroLeading = 0;
+    const seen = new Set<bigint>();
+    for (let i = 0; i < DRAWS; i++) {
+      const { coefficients } = await generateShares(42n, 3, 3, p);
+      seen.add(coefficients[2]);
+      if (coefficients[2] === 0n) zeroLeading++;
+    }
+    expect(zeroLeading).toBeGreaterThan(0);
+    // ...and the draw covers essentially the whole field, not a punctured subset.
+    expect(seen.size).toBeGreaterThanOrEqual(250);
+  });
+
+  it('leaves a single share consistent with EVERY secret in the field (t = 2)', async () => {
+    // At t = 2 the sole non-constant coefficient IS the leading one, so this is
+    // where a leading-coefficient restriction bites hardest. One share is t-1
+    // shares; interpolating it alone gives f(0) = y, so the set of y values a
+    // fixed secret can produce must cover the whole field. If it did not, a
+    // single-share holder could rule the missing candidate out.
+    const p = 257n;
+    const SECRET = 42n;
+    const seen = new Set<bigint>();
+    for (let i = 0; i < 6000; i++) {
+      const { shares } = await generateShares(SECRET, 2, 3, p);
+      seen.add(shares[0].y);
+    }
+    expect(seen.size).toBeGreaterThanOrEqual(250);
+    // The true secret itself must be among the reachable values — that is the
+    // candidate the old code excluded (y = secret happens iff a_1 = 0).
+    expect(seen.has(SECRET)).toBe(true);
+  });
+
+  it('can produce the degenerate fit the Security Proof tab relies on', async () => {
+    // The Security Proof tab claims all 257 secrets are consistent with the fixed
+    // shares (1,75) and (2,140) over p = 257. S = 10 is the one whose fitting
+    // polynomial has a zero leading coefficient: f(x) = 10 + 65x, degree 1.
+    const p = 257n;
+    const fitted = polyForSecret([{ x: 1n, y: 75n }, { x: 2n, y: 140n }], 10n, p);
+    expect(evalPoly(fitted, 0n, p)).toBe(10n);
+    expect(evalPoly(fitted, 1n, p)).toBe(75n);
+    expect(evalPoly(fitted, 2n, p)).toBe(140n);
+    expect(fitted[2]).toBe(0n); // degree drops to 1 for exactly this candidate
+
+    // generateShares must be able to emit polynomials of that shape for S = 10,
+    // otherwise the tab's "every possible secret" statement is false of this
+    // implementation.
+    let sawDegenerate = false;
+    for (let i = 0; i < 6000 && !sawDegenerate; i++) {
+      const { coefficients } = await generateShares(10n, 3, 3, p);
+      if (coefficients[2] === 0n) sawDegenerate = true;
+    }
+    expect(sawDegenerate).toBe(true);
+  });
+
+  it('still reconstructs correctly when the leading coefficient is 0', async () => {
+    // Degree drop must not break correctness: t points determine a unique
+    // polynomial of degree <= t-1 either way.
+    const p = 257n;
+    let checked = 0;
+    for (let i = 0; i < 6000 && checked < 5; i++) {
+      const { shares, coefficients } = await generateShares(99n, 3, 5, p);
+      if (coefficients[2] !== 0n) continue;
+      checked++;
+      expect(reconstructSecret(shares.slice(0, 3), p)).toBe(99n);
+      expect(reconstructSecret(shares.slice(2, 5), p)).toBe(99n);
+    }
+    expect(checked).toBeGreaterThan(0);
   });
 
   it('keeps every coefficient inside the field [0, p)', async () => {

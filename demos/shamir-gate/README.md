@@ -4,7 +4,9 @@
 
 Shamir-Gate demonstrates **Shamir's Secret Sharing (SSS)**, the threshold scheme Adi
 Shamir published in *How to Share a Secret* (1979). A secret is encoded as the constant
-term of a random degree-(t-1) polynomial over a **prime field GF(p)**; each of the *n*
+term of a random polynomial of degree at most t-1 over a **prime field GF(p)** — every
+non-constant coefficient, the leading one included, is drawn uniformly from the full field,
+which is exactly what makes the sub-threshold view carry no information; each of the *n*
 shares is a point `(x, f(x) mod p)`. Any **t** shares reconstruct the secret by Lagrange
 interpolation at x = 0; any **t-1** reveal nothing. SSS provides **information-theoretic
 security** — below the threshold, every possible secret is equally consistent with the
@@ -32,7 +34,7 @@ Eight interactive tabs:
 1. **Lesson** — a guided eight-step arc (encode → field → polynomial → shares → fail below threshold → reconstruct → split a key → limits) with "predict before reveal" checkpoints.
 2. **The Gate** — choose a *t-of-n* threshold, split a text secret into share strings, and reconstruct it. Below *t*, interpolation still returns *a* value — surfaced explicitly as **not** the secret.
 3. **Polynomial** — animates the GF(p) polynomial on a canvas (y wraps mod p; arithmetic stays exact), toggles share points, steps through Lagrange interpolation, offers a discrete-points view, and renders a text **points table** alternative for screen readers.
-4. **Security Proof** — shows multiple degree-2 polynomials through the same two shares, plus an interactive lab: type **any** candidate secret and watch it stay consistent ("observed shares eliminate 0 of 257 possible secrets").
+4. **Security Proof** — shows multiple polynomials of degree ≤ 2 through the same two shares, plus an interactive lab: type **any** candidate secret and watch it stay consistent ("observed shares eliminate 0 of 257 possible secrets"). All 257 secrets qualify, including S = 10, whose fit is the degree-1 line f(x) = 10 + 65x — a generator that forced the leading coefficient nonzero could never produce it, and the count would be 1 of 257 eliminated rather than 0.
 5. **AES Vault** — encrypt with AES-256-GCM, split the key into shares, reconstruct from *t* shares, decrypt. Includes a callout separating encryption / secret-sharing / key-custody and a production-readiness disclaimer.
 6. **Failure Lab** — trigger eight deliberate failures (duplicate x, mixed splits, malformed input, sub-threshold, oversized secret, corrupted digit, wrong IV, wrong key share) and see each classified as *formatting*, *mathematical*, *cryptographic*, or *operational*.
 7. **Real World** — where SSS is deployed (FROST/RFC 9591, HSMs, CA ceremonies, cold storage, two-person rules, MPC) plus a Sources & standards list.

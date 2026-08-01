@@ -145,6 +145,9 @@ export function lagrangeAt0(shares: Array<{ x: bigint; y: bigint }>, p: bigint):
  * p: prime modulus (p > secret, p > n)
  * Returns array of n shares {x: 1..n, y: f(x) mod p}
  * and the polynomial coefficients (for visualization only).
+ *
+ * The polynomial has degree AT MOST t-1, not necessarily exactly t-1 — see the
+ * comment on the coefficient draw below for why that is required, not tolerated.
  */
 export async function generateShares(
   secret: bigint,
@@ -159,14 +162,41 @@ export async function generateShares(
   if (n >= p) throw new Error('n must be < p');
 
   // coefficients: [secret, random a1, ..., random a_{t-1}]
-  // Non-leading coefficients are uniform over the full field [0, p), exactly as in
-  // Shamir's 1979 construction. The leading coefficient a_{t-1} is drawn from
-  // [1, p) so the polynomial has degree *exactly* t-1: a zero leading term would
-  // drop the degree and let t-1 shares reconstruct, weakening the threshold.
+  //
+  // EVERY non-constant coefficient — the leading one a_{t-1} included — is drawn
+  // uniformly from the FULL field [0, p). That uniformity is the whole proof: fix
+  // any t-1 shares, and for each candidate secret S there is exactly one
+  // coefficient vector that hits those shares with f(0) = S. All p^(t-1) vectors
+  // are equally likely, so all p candidate secrets stay equally likely. That is
+  // perfect secrecy, and it is the claim the Security Proof tab makes.
+  //
+  // This code previously drew a_{t-1} from [1, p) "so the polynomial has degree
+  // exactly t-1", on the theory that a zero leading term would let t-1 shares
+  // reconstruct. That reasoning is wrong on both counts:
+  //
+  //   * It does not weaken the threshold. The leading coefficient of the unique
+  //     interpolant through (0, S) and t-1 shares is an affine, non-degenerate
+  //     function of S, so the degree drops for exactly one candidate secret out
+  //     of p. Interpolating t-1 shares and reading off f(0) therefore returns the
+  //     true secret with probability 1/p — identical to guessing — and the
+  //     shareholders cannot tell the degenerate case from the full-degree one,
+  //     because the two produce the same observable share values with the same
+  //     probabilities. Nothing is detectable, so nothing is exploitable.
+  //
+  //   * It DID weaken secrecy. Barring 0 made that one candidate secret
+  //     unreachable: a holder of t-1 shares could rule it out, so the p
+  //     candidates were not equally likely and the perfect-secrecy claim was
+  //     false by exactly 1/p. Concretely, for the Security Proof tab's fixed
+  //     shares (1,75) and (2,140) over p = 257, the excluded secret was S = 10
+  //     (f(x) = 10 + 65x is degree 1 and fits both shares) — a live
+  //     counterexample to that tab's own "for every possible secret S" statement.
+  //
+  // Correctness is untouched: any t points determine a unique polynomial of
+  // degree <= t-1, so Lagrange interpolation at x = 0 recovers the secret whether
+  // or not the degree happened to drop.
   const coefficients: bigint[] = [secret];
   for (let i = 1; i < t; i++) {
-    const isLeading = i === t - 1;
-    coefficients.push(await randomBigInt(isLeading ? 1n : 0n, p));
+    coefficients.push(await randomBigInt(0n, p));
   }
 
   const shares: Array<{ x: bigint; y: bigint }> = [];
@@ -192,12 +222,15 @@ export function reconstructSecret(
 
 /**
  * For the security proof: given t-1 shares and a candidate secret S,
- * compute the unique degree-(t-1) polynomial that passes through the shares
- * AND has f(0) = S. Returns the full coefficient list.
+ * compute the unique polynomial of degree AT MOST t-1 that passes through the
+ * shares AND has f(0) = S. Returns the full coefficient list.
  *
  * This works by treating both (0, S) and the t-1 shares as t points total,
  * then using Lagrange to interpolate the polynomial.
- * The result is deterministic — exactly one such polynomial exists.
+ * The result is deterministic — exactly one such polynomial exists, for EVERY
+ * candidate S without exception. (Its leading coefficient is 0 for exactly one
+ * S in the field; that polynomial is still a legitimate output of
+ * generateShares, which is why generateShares must not exclude it.)
  */
 export function polyForSecret(
   shares: Array<{ x: bigint; y: bigint }>,
