@@ -33,3 +33,7 @@ playwright-report/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Review notes kept locally, not part of the shipped demo
+chat*.md
+gem.md
