@@ -1424,7 +1424,7 @@ function renderShell(): void {
 
         <div class="bio-section">
           <h3>Secret Sharing (1979)</h3>
-          <p>Two years after RSA, Shamir published "How to Share a Secret" in Communications of the ACM. The paper is four pages long. It introduced the polynomial-based scheme demonstrated in this demo. Independent of Shamir, George Blakley published a geometrically-equivalent scheme the same year.</p>
+          <p>Two years after RSA, Shamir published "How to Share a Secret" in Communications of the ACM. The paper is two pages long (CACM 22(11), pp. 612–613). It introduced the polynomial-based scheme demonstrated in this demo. Independent of Shamir, George Blakley published a geometrically-equivalent scheme the same year.</p>
         </div>
 
         <div class="bio-section">
