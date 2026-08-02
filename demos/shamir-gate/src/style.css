@@ -12,6 +12,7 @@
   --bg3: #14142a;
   --border: #1e2040;
   --border-bright: #2a2d6a;
+  --control-border: #777ac0;
   --text: #d0d4e8;
   --text-dim: #7080b5; /* ≥4.5:1 on --bg for WCAG AA body text */
   --text-mono: #b8c0e0;
@@ -37,6 +38,7 @@
   --bg3: #e0e2f0;
   --border: #c0c8e0;
   --border-bright: #8090d0;
+  --control-border: #6872a0;
   --text: #1a1e40;
   --text-dim: #45508c; /* darkened for >=4.5:1 on light --bg3 tints */
   --text-mono: #1a2040;
@@ -287,7 +289,7 @@ textarea,
 select {
   width: 100%;
   background: var(--bg3);
-  border: 1px solid var(--border-bright);
+  border: 1px solid var(--control-border);
   color: var(--text);
   font-family: var(--font-mono);
   font-size: .85rem;
