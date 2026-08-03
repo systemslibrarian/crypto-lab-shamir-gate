@@ -49,9 +49,28 @@ npm install
 npm run dev        # start the dev server
 npm test           # run the GF(p) + AES test suite
 npm run build      # typecheck, then build for production
+npm run test:e2e   # Playwright: functional claims + WCAG 2.1 AA gate
 ```
 
-The test suite (46 tests) verifies the field arithmetic, the share round-trip across
+`npm run test:e2e` (and `test:a11y`, the same run) builds first and serves the
+production bundle, so what is driven is what ships.
+
+**Functional browser gate:** `e2e/claims.spec.ts` drives the built page and asserts the
+numbers each tab puts on screen — checked against each other and against the GF(p)
+arithmetic redone inside the test, not against constants. The polynomial the Gate
+publishes must actually pass through the shares it listed and its constant term must be
+the integer it called the secret; any t of those shares must interpolate back to it; the
+sub-threshold value it prints must be the one Lagrange really gives *and* must differ
+from the secret; the Polynomial tab's points must all lie on one degree-<t curve while
+its table caption, canvas label and Lagrange stepper agree on whether the threshold is
+met; every Security Proof candidate must genuinely evaluate to f(1)=75 and f(2)=140; and
+the AES shares must reconstruct the very key displayed above them. Every failure path is
+asserted to reach its state *and* name its cause — malformed, duplicate-x, mixed-split
+and empty share sets, an out-of-field secret, a below-threshold decrypt, and a tampered
+key share, which must fail the GCM tag check and leak no plaintext. Uncaught page
+exceptions fail the run.
+
+The unit suite (46 tests) verifies the field arithmetic, the share round-trip across
 **every** t-subset of n, the threshold theorem (for any candidate secret a consistent
 polynomial through the t-1 shares exists), the end-to-end AES key-split → reconstruct →
 decrypt flow (`math`/`crypto` specs), the share-validation failure taxonomy (`shares`

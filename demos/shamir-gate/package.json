@@ -12,6 +12,7 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:a11y": "playwright test",
+    "test:e2e": "playwright test",
     "deploy": "npm run build && gh-pages -d dist"
   },
   "keywords": [

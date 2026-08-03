@@ -208,9 +208,19 @@ function initGateTab(): void {
   });
 
   el('gate-reconstruct').addEventListener('click', () => {
+    // A rejected submission collects nothing. Without resetting the vault the
+    // lock kept the previous run's 🔓 UNLOCKED verdict on screen right beside a
+    // failure message — the headline contradicting the result box.
+    const failReconstruct = (message: string): void => {
+      gate.submittedCount = 0;
+      updateLock(0, gate.genT);
+      updateSlots(gate.n, 0);
+      showResult('gate-result', message, 'error');
+    };
+
     const validation = validateShareSet(el<HTMLTextAreaElement>('gate-shares-input').value);
     if (!validation.ok) {
-      showResult('gate-result', validation.message!, 'error');
+      failReconstruct(validation.message!);
       return;
     }
     const parsed = validation.shares;
@@ -237,7 +247,7 @@ function initGateTab(): void {
         showResult('gate-result', `✓ Secret recovered: "${text}" (integer: ${secret})`, 'success');
       }
     } catch (e: unknown) {
-      showResult('gate-result', `Error: ${(e as Error).message}`, 'error');
+      failReconstruct(`Error: ${(e as Error).message}`);
     }
   });
 
@@ -748,7 +758,20 @@ function initAesTab(): void {
       const plaintext = await aesDecrypt(reconstructedKey, cipher, ivVal);
       showResult('aes-result', `✓ Decrypted: "${plaintext}"`, 'success');
     } catch (e: unknown) {
-      showResult('aes-result', `Decryption failed: ${(e as Error).message}`, 'error');
+      // WebCrypto rejects a failed GCM tag check with an OperationError whose
+      // message is the empty string in Chromium, which used to render as
+      // "Decryption failed:" — a promised reason with nothing after the colon.
+      // The tag check is the interesting fact here, so say it.
+      const reason = (e as Error).message?.trim();
+      showResult(
+        'aes-result',
+        `Decryption failed: ${
+          reason ||
+          'AES-GCM authentication failed. The reconstructed key, the ciphertext or the IV is wrong, ' +
+            'and GCM verifies the tag before it will return any plaintext — so you get nothing rather than garbage.'
+        }`,
+        'error',
+      );
     }
   });
 }
