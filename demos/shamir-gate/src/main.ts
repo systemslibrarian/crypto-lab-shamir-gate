@@ -28,26 +28,6 @@ import {
 import { drawPolynomial, animatePolynomial } from './polynomial-canvas';
 import { validateShareSet, type FailureCategory } from './shares';
 
-// ── Theme ─────────────────────────────────────────────────────────
-const THEME_KEY = 'cv-theme';
-
-function initTheme(): void {
-  const btn = document.getElementById('theme-toggle') as HTMLButtonElement;
-  const update = () => {
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    btn.textContent = isDark ? '☀️' : '🌙';
-    btn.setAttribute('aria-label', isDark ? 'Switch to light theme' : 'Switch to dark theme');
-  };
-  btn.addEventListener('click', () => {
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    const next = isDark ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem(THEME_KEY, next);
-    update();
-  });
-  update();
-}
-
 // ── Tab system ────────────────────────────────────────────────────
 function initTabs(): void {
   const tabBtns = document.querySelectorAll<HTMLButtonElement>('.tab-btn');
@@ -1107,7 +1087,6 @@ function renderShell(): void {
     <span class="cl-hero-why-label">WHY IT MATTERS</span>
     <p class="cl-hero-why-text">No single keyholder can leak or lose the secret, and any t trustees can recover it. That trade-off underpins crypto-wallet custody, root-key escrow, and quorum access controls where fewer than t shares reveal nothing at all.</p>
   </aside>
-  <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle theme">☀️</button>
 </header>
 
 <div class="tabs-wrap">
@@ -1519,7 +1498,6 @@ function renderShell(): void {
 // ── Bootstrap ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   renderShell();
-  initTheme();
   initTabs();
   initLessonTab();
   initGateTab();
