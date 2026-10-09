@@ -24,11 +24,11 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install dependencies
         working-directory: demos/shamir-gate
-        run: npm install
+        run: npm ci
 
       # The vitest suites: math (the prime field and Lagrange interpolation),
       # shares, crypto, and the ui smoke pass. This is the only workflow in the
