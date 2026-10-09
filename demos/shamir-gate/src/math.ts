@@ -50,9 +50,15 @@ export function extGcd(a: bigint, b: bigint): { gcd: bigint; x: bigint; y: bigin
  */
 export async function randomBigInt(min: bigint, max: bigint): Promise<bigint> {
   const range = max - min;
-  // Number of bytes needed
-  const byteLen = Math.ceil(range.toString(16).length / 2);
-  const mask = (1n << BigInt(byteLen * 8)) - 1n;
+  if (range <= 0n) throw new RangeError('randomBigInt requires min < max');
+  if (range === 1n) return min;
+  // Draw uniformly from the smallest power-of-two interval containing [0, range).
+  // Masking unused high bits preserves uniformity; reject instead of reducing
+  // modulo range, which would bias coefficients. This accepts at least half the
+  // candidates, including for small fields (257) and primes just above 2^256.
+  const bits = (range - 1n).toString(2).length;
+  const byteLen = Math.ceil(bits / 8);
+  const mask = (1n << BigInt(bits)) - 1n;
   while (true) {
     const buf = new Uint8Array(byteLen);
     crypto.getRandomValues(buf);
