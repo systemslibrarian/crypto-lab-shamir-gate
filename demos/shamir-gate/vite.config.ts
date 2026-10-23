@@ -14,9 +14,9 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@crypto': path.resolve(__dirname, './src/crypto'),
-      '@visualization': path.resolve(__dirname, './src/visualization')
+      '@': path.resolve(import.meta.dirname, './src'),
+      '@crypto': path.resolve(import.meta.dirname, './src/crypto'),
+      '@visualization': path.resolve(import.meta.dirname, './src/visualization')
     }
   }
 });

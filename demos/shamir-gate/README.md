@@ -70,7 +70,7 @@ and empty share sets, an out-of-field secret, a below-threshold decrypt, and a t
 key share, which must fail the GCM tag check and leak no plaintext. Uncaught page
 exceptions fail the run.
 
-The unit suite (46 tests) verifies the field arithmetic, the share round-trip across
+The unit suite (55 tests) verifies the field arithmetic, the share round-trip across
 **every** t-subset of n, the threshold theorem (for any candidate secret a consistent
 polynomial through the t-1 shares exists), the end-to-end AES key-split → reconstruct →
 decrypt flow (`math`/`crypto` specs), the share-validation failure taxonomy (`shares`
