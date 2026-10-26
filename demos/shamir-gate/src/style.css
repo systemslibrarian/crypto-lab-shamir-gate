@@ -1113,7 +1113,12 @@ footer a:hover { color: var(--text); }
   line-height: 1.75;
   margin: .75rem 0;
 }
-.visual-table-wrap { overflow-x: auto; }
+.visual-table-wrap {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  width: 100%;
+}
 .visual-table-wrap:focus-visible {
   outline: 3px solid var(--gold);
   outline-offset: 2px;
