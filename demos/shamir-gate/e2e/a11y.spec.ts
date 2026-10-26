@@ -100,11 +100,32 @@ for (const width of [380, 320]) {
     await page.goto('.');
     await page.locator('.tab-list').waitFor();
     await scan(page);
-    const dimensions = await page.evaluate(() => ({
-      viewport: document.documentElement.clientWidth,
-      page: document.documentElement.scrollWidth,
-    }));
-    expect(dimensions.page).toBeLessThanOrEqual(dimensions.viewport);
+    const dimensions = await page.evaluate(() => {
+      const viewport = document.documentElement.clientWidth;
+      const overflowers = [...document.querySelectorAll<HTMLElement>('body *')]
+        .map((element) => {
+          const rect = element.getBoundingClientRect();
+          const classes = typeof element.className === 'string'
+            ? element.className.trim().split(/\s+/).filter(Boolean).slice(0, 3).join('.')
+            : '';
+          return {
+            selector: `${element.tagName.toLowerCase()}${element.id ? `#${element.id}` : ''}${classes ? `.${classes}` : ''}`,
+            left: Math.round(rect.left),
+            right: Math.round(rect.right),
+            width: Math.round(rect.width),
+            clientWidth: element.clientWidth,
+            scrollWidth: element.scrollWidth,
+          };
+        })
+        .filter(({ left, right }) => left < 0 || right > viewport)
+        .sort((left, right) => right.right - left.right)
+        .slice(0, 20);
+      return { viewport, page: document.documentElement.scrollWidth, overflowers };
+    });
+    expect(
+      dimensions.page,
+      `Overflowing elements: ${JSON.stringify(dimensions.overflowers)}`,
+    ).toBeLessThanOrEqual(dimensions.viewport);
   });
 }
 
