@@ -53,6 +53,14 @@ async function driveDemos(page: Page): Promise<void> {
       await btn.first().click({ timeout: 5000 }).catch(() => {});
     }
   }
+  const visualGenerate = page.locator('#visual-generate');
+  if (await visualGenerate.count()) {
+    await visualGenerate.click({ timeout: 5000 }).catch(() => {});
+    await page.locator('[data-visual-matrix="share-1"]').waitFor({ timeout: 5000 }).catch(() => {});
+    for (const id of ['#visual-stack-or', '#visual-stack-xor', '#visual-prove', '#visual-controls']) {
+      await page.locator(id).click({ timeout: 5000 }).catch(() => {});
+    }
+  }
   // Failure lab scenario buttons are injected into #fail-scenarios.
   const failBtns = page.locator('#fail-scenarios button');
   const failCount = await failBtns.count();
@@ -85,4 +93,18 @@ test('no WCAG A/AA violations in dark theme', async ({ page }) => {
   await page.locator('.tab-list').waitFor();
   await scan(page);
 });
+
+for (const width of [380, 320]) {
+  test(`no WCAG A/AA violations or horizontal page overflow at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('.');
+    await page.locator('.tab-list').waitFor();
+    await scan(page);
+    const dimensions = await page.evaluate(() => ({
+      viewport: document.documentElement.clientWidth,
+      page: document.documentElement.scrollWidth,
+    }));
+    expect(dimensions.page).toBeLessThanOrEqual(dimensions.viewport);
+  });
+}
 

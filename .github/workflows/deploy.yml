@@ -40,6 +40,10 @@ jobs:
         working-directory: demos/shamir-gate
         run: npm run test:run
 
+      - name: Visual-sharing clean-baseline mutation gate
+        working-directory: demos/shamir-gate
+        run: npm run test:mutations
+
       - name: Build
         working-directory: demos/shamir-gate
         run: npm run build

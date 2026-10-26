@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:mutations": "node scripts/visual-mutations.mjs",
     "test:a11y": "playwright test",
     "test:e2e": "playwright test",
     "deploy": "gh workflow run deploy.yml --repo systemslibrarian/crypto-lab-shamir-gate --ref main",

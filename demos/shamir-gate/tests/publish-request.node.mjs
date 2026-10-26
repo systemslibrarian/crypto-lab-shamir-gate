@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -8,7 +8,14 @@ import { fileURLToPath, URL } from 'node:url';
 import process from 'node:process';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const npmCli = join(process.execPath, '..', '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js');
+const derivedNpmCli = join(process.execPath, '..', '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js');
+// npm exposes its real CLI path to lifecycle scripts. Prefer it because
+// Homebrew keeps node in Cellar/node/<version>/bin while npm lives under
+// /opt/homebrew/lib; deriving npm from process.execPath works on hosted Linux
+// but points at a nonexistent Cellar/node/lib path on macOS.
+const npmCli = process.env.npm_execpath && existsSync(process.env.npm_execpath)
+  ? process.env.npm_execpath
+  : derivedNpmCli;
 
 // Replace only the external GitHub boundary; exercise the real npm script.
 // Neither control dispatches a workflow or uploads any local build.
