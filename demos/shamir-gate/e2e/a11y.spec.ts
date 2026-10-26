@@ -53,6 +53,14 @@ async function driveDemos(page: Page): Promise<void> {
       await btn.first().click({ timeout: 5000 }).catch(() => {});
     }
   }
+  const visualGenerate = page.locator('#visual-generate');
+  if (await visualGenerate.count()) {
+    await visualGenerate.click({ timeout: 5000 }).catch(() => {});
+    await page.locator('[data-visual-matrix="share-1"]').waitFor({ timeout: 5000 }).catch(() => {});
+    for (const id of ['#visual-stack-or', '#visual-stack-xor', '#visual-prove', '#visual-controls']) {
+      await page.locator(id).click({ timeout: 5000 }).catch(() => {});
+    }
+  }
   // Failure lab scenario buttons are injected into #fail-scenarios.
   const failBtns = page.locator('#fail-scenarios button');
   const failCount = await failBtns.count();
@@ -85,4 +93,55 @@ test('no WCAG A/AA violations in dark theme', async ({ page }) => {
   await page.locator('.tab-list').waitFor();
   await scan(page);
 });
+
+for (const width of [380, 320]) {
+  test(`no WCAG A/AA violations or horizontal page overflow at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('.');
+    await page.locator('.tab-list').waitFor();
+    await scan(page);
+    const dimensions = await page.evaluate(() => {
+      const viewport = document.documentElement.clientWidth;
+      const pageWidth = document.documentElement.scrollWidth;
+      const describe = (element: HTMLElement) => {
+          const rect = element.getBoundingClientRect();
+          const classes = typeof element.className === 'string'
+            ? element.className.trim().split(/\s+/).filter(Boolean).slice(0, 3).join('.')
+            : '';
+          const style = getComputedStyle(element);
+          return {
+            selector: `${element.tagName.toLowerCase()}${element.id ? `#${element.id}` : ''}${classes ? `.${classes}` : ''}`,
+            left: Math.round(rect.left),
+            right: Math.round(rect.right),
+            width: Math.round(rect.width),
+            clientWidth: element.clientWidth,
+            scrollWidth: element.scrollWidth,
+            display: style.display,
+            minWidth: style.minWidth,
+            overflowX: style.overflowX,
+          };
+      };
+      const elements = [...document.querySelectorAll<HTMLElement>('body *')];
+      const overflowers = elements
+        .map(describe)
+        .filter(({ left, right }) => left < 0 || right > viewport)
+        .sort((left, right) => right.right - left.right)
+        .slice(0, 20);
+      const edgeOwners = elements
+        .map(describe)
+        .filter(({ right }) => Math.abs(right - pageWidth) <= 2)
+        .slice(0, 20);
+      const containment = [
+        'body', '#app', '.tabs-wrap', '#tab-visual', '.visual-result-section',
+        '.visual-proof-result', '.visual-table-wrap', '#tab-gate .two-col',
+        '#tab-gate .share-item', '#tab-poly .poly-layout', '#tab-aes .step-block',
+      ].flatMap((selector) => [...document.querySelectorAll<HTMLElement>(selector)].slice(0, 2).map(describe));
+      return { viewport, page: pageWidth, overflowers, edgeOwners, containment };
+    });
+    expect(
+      dimensions.page,
+      `Overflowing elements: ${JSON.stringify(dimensions.overflowers)}; edge owners: ${JSON.stringify(dimensions.edgeOwners)}; containment: ${JSON.stringify(dimensions.containment)}`,
+    ).toBeLessThanOrEqual(dimensions.viewport);
+  });
+}
 

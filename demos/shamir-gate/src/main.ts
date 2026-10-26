@@ -1,7 +1,7 @@
 /**
  * Shamir-Gate — Main UI
- * Eight-tab Shamir's Secret Sharing demo: Lesson, Gate, Polynomial, Security Proof,
- * AES Vault, Failure Lab, Real World, Adi Shamir.
+ * Nine-tab secret-sharing demo: Lesson, Gate, Polynomial, Security Proof,
+ * Visual Shares, AES Vault, Failure Lab, Real World, Adi Shamir.
  * All arithmetic: BigInt over GF(p). All randomness via crypto.getRandomValues. No float in math.
  */
 
@@ -27,6 +27,7 @@ import {
 } from './crypto';
 import { drawPolynomial, animatePolynomial } from './polynomial-canvas';
 import { validateShareSet, type FailureCategory } from './shares';
+import { initVisualTab, visualPanelHtml } from './visual-ui';
 
 // ── Tab system ────────────────────────────────────────────────────
 function initTabs(): void {
@@ -1095,6 +1096,7 @@ function renderShell(): void {
     <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-gate"     id="btn-gate"     tabindex="-1">The Gate</button>
     <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-poly"     id="btn-poly"     tabindex="-1">Polynomial</button>
     <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-proof"    id="btn-proof"    tabindex="-1">Security Proof</button>
+    <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-visual"   id="btn-visual"   tabindex="-1">Visual Shares</button>
     <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-aes"      id="btn-aes"      tabindex="-1">AES Vault</button>
     <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-fail"     id="btn-fail"     tabindex="-1">Failure Lab</button>
     <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-rw"       id="btn-rw"       tabindex="-1">Real World</button>
@@ -1293,7 +1295,10 @@ function renderShell(): void {
     </div>
   </div>
 
-  <!-- ── TAB 4: AES VAULT ── -->
+  <!-- ── TAB 4: VISUAL SECRET SHARING ── -->
+  ${visualPanelHtml()}
+
+  <!-- ── TAB 5: AES VAULT ── -->
   <div class="tab-panel" id="tab-aes" role="tabpanel" aria-labelledby="btn-aes" tabindex="0">
     <div class="concept-callout">
       <h3>Three different jobs — keep them straight</h3>
@@ -1502,6 +1507,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initLessonTab();
   initGateTab();
   initPolyTab();
+  initVisualTab();
   initAesTab();
   initFailureLab();
   // Security proof is static — render on load

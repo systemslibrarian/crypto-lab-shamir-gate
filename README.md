@@ -12,6 +12,10 @@ All arithmetic uses BigInt over a prime field. No floating point approximations.
 The polynomial visualization shows what under-threshold shares actually mean —
 multiple valid polynomials consistent with the same shares, each reaching a
 different secret — making the security guarantee tangible rather than abstract.
+An independent ninth exhibit implements Naor and Shamir's binary 2-of-2 visual
+construction: it expands each source pixel into four subpixels, enumerates the
+exact one-share distributions, reconstructs by physical Boolean OR, and keeps a
+digital XOR comparison separate from transparency stacking.
 
 ## When to Use It
 
@@ -20,6 +24,8 @@ different secret — making the security guarantee tangible rather than abstract
 - Teaching the difference between computational security (RSA, AES) and
   information-theoretic security (Shamir — secure even against infinite compute).
 - Splitting an AES-256 key across administrators for high-assurance systems.
+- Teaching exact 2-of-2 visual secret sharing, pixel expansion, contrast, and
+  why fresh per-pixel masks matter.
 - Do NOT use this as production key-management software — it is a teaching demo, not a hardened secret-sharing library or HSM.
 
 ## Live Demo
@@ -35,6 +41,10 @@ Build a `t`-of-`n` split over a prime field, watch the polynomial and Lagrange i
 - **No verifiability in plain Shamir** — a malicious dealer can hand out inconsistent shares and a shareholder can submit a forged one, with no way for honest parties to detect it. That is exactly what Verifiable Secret Sharing (Feldman/Pedersen VSS) adds.
 - **The reconstruction point is a single point of compromise** — the full secret briefly exists in one place when shares are combined; that host/moment must be protected.
 - **Weak coefficient randomness** — the polynomial's non-constant coefficients must be uniformly random in the field; predictable coefficients leak information about the secret.
+- **Visual-mask reuse or misalignment** — reusing one four-subpixel mask leaks
+  cross-pixel relations, while real transparencies also require exact physical
+  registration. The browser model provides confidentiality, not authenticity
+  or a model of printing and optical channels.
 
 ## Real-World Usage
 

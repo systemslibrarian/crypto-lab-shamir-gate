@@ -15,9 +15,9 @@ beforeAll(async () => {
 const $ = (id: string) => document.getElementById(id);
 
 describe('UI smoke — the shell and every tab mount without errors', () => {
-  it('renders all eight tabs', () => {
-    expect(document.querySelectorAll('.tab-btn')).toHaveLength(8);
-    ['tab-lesson', 'tab-gate', 'tab-poly', 'tab-proof', 'tab-aes', 'tab-fail', 'tab-rw', 'tab-shamir']
+  it('renders all nine tabs', () => {
+    expect(document.querySelectorAll('.tab-btn')).toHaveLength(9);
+    ['tab-lesson', 'tab-gate', 'tab-poly', 'tab-proof', 'tab-visual', 'tab-aes', 'tab-fail', 'tab-rw', 'tab-shamir']
       .forEach(id => expect($(id), id).not.toBeNull());
   });
 
@@ -25,6 +25,40 @@ describe('UI smoke — the shell and every tab mount without errors', () => {
     expect($('tab-lesson')!.classList.contains('active')).toBe(true);
     expect($('lesson-body')!.querySelector('h3')).not.toBeNull();
     expect($('lesson-nav')!.querySelector('button')).not.toBeNull();
+  });
+});
+
+describe('UI smoke — visual secret sharing', () => {
+  it('generates, reconstructs, proves full distributions, runs controls, and retires stale results', async () => {
+    expect($('visual-source-grid')!.querySelectorAll('.visual-source-cell')).toHaveLength(64);
+    expect(($('visual-stack-or') as HTMLButtonElement).disabled).toBe(true);
+
+    $('visual-generate')!.click();
+    await new Promise(r => setTimeout(r, 0));
+    expect($('visual-share-1')!.querySelector('[data-visual-grid="share-1"]')).not.toBeNull();
+    expect($('visual-share-2')!.querySelector('[data-visual-grid="share-2"]')).not.toBeNull();
+    expect(($('visual-stack-or') as HTMLButtonElement).disabled).toBe(false);
+
+    $('visual-stack-or')!.click();
+    $('visual-stack-xor')!.click();
+    $('visual-prove')!.click();
+    $('visual-controls')!.click();
+    expect($('visual-or-output')!.querySelector('[data-visual-grid="or-stack"]')).not.toBeNull();
+    expect($('visual-xor-output')!.querySelector('[data-visual-grid="xor-view"]')).not.toBeNull();
+    expect($('visual-distribution')!.querySelectorAll('#visual-distribution-table tbody tr')).toHaveLength(12);
+    expect($('visual-distribution')!.textContent).toContain('same complete block distribution');
+    expect($('visual-negative-controls')!.textContent).toContain('Mask reuse leaks relations');
+    expect($('visual-negative-controls')!.textContent).toContain('Both aligned shares are required');
+    expect($('tab-visual')!.textContent).toContain('Physical transparencies combine with Boolean OR');
+    expect($('tab-visual')!.textContent).toContain('XOR is not physical transparency stacking');
+    expect($('tab-visual')!.textContent).toContain('The two shares together reveal the image');
+
+    const firstSourcePixel = $('visual-source-grid')!.querySelector<HTMLButtonElement>('.visual-source-cell')!;
+    firstSourcePixel.click();
+    expect(($('visual-stack-or') as HTMLButtonElement).disabled).toBe(true);
+    expect($('visual-or-output')!.querySelector('[data-visual-grid="or-stack"]')).toBeNull();
+    expect($('visual-distribution')!.querySelector('#visual-distribution-table')).toBeNull();
+    expect($('visual-live')!.textContent).toContain('retired');
   });
 });
 
