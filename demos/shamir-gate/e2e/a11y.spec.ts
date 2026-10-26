@@ -102,12 +102,13 @@ for (const width of [380, 320]) {
     await scan(page);
     const dimensions = await page.evaluate(() => {
       const viewport = document.documentElement.clientWidth;
-      const overflowers = [...document.querySelectorAll<HTMLElement>('body *')]
-        .map((element) => {
+      const pageWidth = document.documentElement.scrollWidth;
+      const describe = (element: HTMLElement) => {
           const rect = element.getBoundingClientRect();
           const classes = typeof element.className === 'string'
             ? element.className.trim().split(/\s+/).filter(Boolean).slice(0, 3).join('.')
             : '';
+          const style = getComputedStyle(element);
           return {
             selector: `${element.tagName.toLowerCase()}${element.id ? `#${element.id}` : ''}${classes ? `.${classes}` : ''}`,
             left: Math.round(rect.left),
@@ -115,16 +116,31 @@ for (const width of [380, 320]) {
             width: Math.round(rect.width),
             clientWidth: element.clientWidth,
             scrollWidth: element.scrollWidth,
+            display: style.display,
+            minWidth: style.minWidth,
+            overflowX: style.overflowX,
           };
-        })
+      };
+      const elements = [...document.querySelectorAll<HTMLElement>('body *')];
+      const overflowers = elements
+        .map(describe)
         .filter(({ left, right }) => left < 0 || right > viewport)
         .sort((left, right) => right.right - left.right)
         .slice(0, 20);
-      return { viewport, page: document.documentElement.scrollWidth, overflowers };
+      const edgeOwners = elements
+        .map(describe)
+        .filter(({ right }) => Math.abs(right - pageWidth) <= 2)
+        .slice(0, 20);
+      const containment = [
+        'body', '#app', '.tabs-wrap', '#tab-visual', '.visual-result-section',
+        '.visual-proof-result', '.visual-table-wrap', '#tab-gate .two-col',
+        '#tab-gate .share-item', '#tab-poly .poly-layout', '#tab-aes .step-block',
+      ].flatMap((selector) => [...document.querySelectorAll<HTMLElement>(selector)].slice(0, 2).map(describe));
+      return { viewport, page: pageWidth, overflowers, edgeOwners, containment };
     });
     expect(
       dimensions.page,
-      `Overflowing elements: ${JSON.stringify(dimensions.overflowers)}`,
+      `Overflowing elements: ${JSON.stringify(dimensions.overflowers)}; edge owners: ${JSON.stringify(dimensions.edgeOwners)}; containment: ${JSON.stringify(dimensions.containment)}`,
     ).toBeLessThanOrEqual(dimensions.viewport);
   });
 }
