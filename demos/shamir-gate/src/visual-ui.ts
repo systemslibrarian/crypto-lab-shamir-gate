@@ -406,7 +406,7 @@ export function visualPanelHtml(): string {
     </section>
 
     <div class="disclaimer visual-limitations">
-      <strong>Bounded teaching model.</strong> This is binary 2-of-2 visual secret sharing, not general k-of-n, grayscale, color, or progressive visual cryptography. It provides confidentiality for one correctly generated share under fresh per-pixel masks, but no authenticity. It assumes exact alignment and does not model printing, opacity, scaling, rotation, dot gain, display gamma, or registration error. Both shares reveal the image by design. The browser retains the source and both shares, so it is not an operational share-distribution system.
+      <strong>Bounded teaching model.</strong> This is binary 2-of-2 visual secret sharing, not general k-of-n, grayscale, color, or progressive visual cryptography. It provides confidentiality for one correctly generated share under fresh per-pixel masks, but no authenticity. It assumes exact alignment and does not model printing, opacity, scaling, rotation, dot gain, display gamma, or registration error. The two shares together reveal the image by design. The browser retains the source and both shares, so it is not an operational share-distribution system.
     </div>
     <div class="sources">
       <h3>Primary source</h3>

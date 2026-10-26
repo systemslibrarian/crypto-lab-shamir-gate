@@ -51,6 +51,7 @@ describe('UI smoke — visual secret sharing', () => {
     expect($('visual-negative-controls')!.textContent).toContain('Both aligned shares are required');
     expect($('tab-visual')!.textContent).toContain('Physical transparencies combine with Boolean OR');
     expect($('tab-visual')!.textContent).toContain('XOR is not physical transparency stacking');
+    expect($('tab-visual')!.textContent).toContain('The two shares together reveal the image');
 
     const firstSourcePixel = $('visual-source-grid')!.querySelector<HTMLButtonElement>('.visual-source-cell')!;
     firstSourcePixel.click();
