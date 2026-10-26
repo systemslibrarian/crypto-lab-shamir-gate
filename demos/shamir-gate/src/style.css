@@ -133,13 +133,14 @@ body {
 /* ── Two-column layout ── */
 .two-col {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 2rem;
   align-items: start;
 }
+.two-col > * { min-width: 0; }
 
 @media (max-width: 768px) {
-  .two-col { grid-template-columns: 1fr; }
+  .two-col { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* ── Cards / panels ── */
@@ -353,6 +354,7 @@ button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .share-item {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: .5rem;
   background: var(--bg3);
   border: 1px solid var(--border);
@@ -370,6 +372,7 @@ button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 
 .share-item .share-val {
   flex: 1;
+  min-width: 0;
   font-family: var(--font-mono);
   font-size: .73rem;
   color: var(--text-mono);
