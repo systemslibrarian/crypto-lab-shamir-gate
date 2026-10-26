@@ -175,7 +175,7 @@ function renderDistributionProof(): void {
   byId('visual-distribution').innerHTML = `
     <div class="visual-proof-result" data-proof="full-block-distribution">
       <p><strong>Exact result:</strong> each labeled share has the same complete block distribution for a white or black source pixel: every weight-two pattern occurs with probability 1/6.</p>
-      <div class="visual-table-wrap">
+      <div class="visual-table-wrap" role="region" aria-label="Exact one-share distribution table" tabindex="0">
         <table class="visual-table" id="visual-distribution-table">
           <caption>Complete enumeration of all six masks; probabilities are exact counts, not estimates.</caption>
           <thead><tr><th scope="col">Labeled share</th><th scope="col">Four-bit block</th><th scope="col">Given white</th><th scope="col">Given black</th></tr></thead>
@@ -393,7 +393,7 @@ export function visualPanelHtml(): string {
 
     <section class="panel visual-comparison">
       <h3>Visual sharing is not polynomial Shamir with pictures</h3>
-      <div class="visual-table-wrap"><table class="visual-table">
+      <div class="visual-table-wrap" role="region" aria-label="Visual and polynomial sharing comparison table" tabindex="0"><table class="visual-table">
         <thead><tr><th scope="col">Property</th><th scope="col">Visual construction here</th><th scope="col">Polynomial Shamir elsewhere in this lab</th></tr></thead>
         <tbody>
           <tr><th scope="row">Shared object</th><td>Binary image pixels</td><td>Field element or encoded secret</td></tr>

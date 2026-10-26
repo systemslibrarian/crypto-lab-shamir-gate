@@ -120,6 +120,12 @@ test('visual results retire on input changes and the tab remains keyboard/reflow
   await page.locator('#visual-stack-or').click();
   await page.locator('#visual-prove').click();
   await expect(page.locator('#visual-distribution-table')).toBeVisible();
+  const distributionRegion = page.getByRole('region', { name: 'Exact one-share distribution table' });
+  const comparisonRegion = page.getByRole('region', { name: 'Visual and polynomial sharing comparison table' });
+  await expect(distributionRegion).toHaveAttribute('tabindex', '0');
+  await distributionRegion.focus();
+  await expect(distributionRegion).toBeFocused();
+  await expect(comparisonRegion).toHaveAttribute('tabindex', '0');
 
   await page.locator('.visual-source-cell').first().click();
   await expect(page.locator('#visual-stack-or')).toBeDisabled();

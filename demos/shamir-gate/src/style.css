@@ -1114,6 +1114,10 @@ footer a:hover { color: var(--text); }
   margin: .75rem 0;
 }
 .visual-table-wrap { overflow-x: auto; }
+.visual-table-wrap:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
 .visual-table {
   border-collapse: collapse;
   font-family: var(--font-mono);
