@@ -28,6 +28,9 @@ test-results/
 playwright-report/
 .pw-browsers/
 
+# Written by scripts/visual-mutations.mjs on every run; CI uploads it as an artifact
+mutation-evidence.json
+
 # Logs
 *.log
 npm-debug.log*
