@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -13,9 +13,28 @@ const derivedNpmCli = join(process.execPath, '..', '..', 'lib', 'node_modules', 
 // Homebrew keeps node in Cellar/node/<version>/bin while npm lives under
 // /opt/homebrew/lib; deriving npm from process.execPath works on hosted Linux
 // but points at a nonexistent Cellar/node/lib path on macOS.
+// A bare `node --test` sets no npm_execpath, and on Homebrew the derived path
+// does not exist, so the control failed before npm ever ran. Fall back to the
+// `npm` on PATH resolved to its real CLI script. Whatever is chosen is still
+// run by process.execPath, so the control never changes which Node runs. This
+// carries across the one still-wanted change from PR #17, whose branch predates
+// the S07 visual-sharing delivery and cannot be rebased as a whole.
+function npmCliFromPath() {
+  for (const dir of (process.env.PATH ?? '').split(delimiter)) {
+    if (!dir) continue;
+    const candidate = join(dir, 'npm');
+    if (!existsSync(candidate)) continue;
+    const real = realpathSync(candidate);
+    if (real.endsWith('.js')) return real;
+  }
+  return undefined;
+}
+
 const npmCli = process.env.npm_execpath && existsSync(process.env.npm_execpath)
   ? process.env.npm_execpath
-  : derivedNpmCli;
+  : existsSync(derivedNpmCli)
+    ? derivedNpmCli
+    : (npmCliFromPath() ?? derivedNpmCli);
 
 // Replace only the external GitHub boundary; exercise the real npm script.
 // Neither control dispatches a workflow or uploads any local build.
