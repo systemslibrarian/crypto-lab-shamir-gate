@@ -40,9 +40,22 @@ jobs:
         working-directory: demos/shamir-gate
         run: npm run test:run
 
+      # Fourteen recipes over src/visual.ts and src/visual-ui.ts, each proven
+      # against a clean baseline: named owning test green, non-empty source
+      # diff, moved bundle hash, owner red on a test failure (timeouts, crashes
+      # and type errors are refused, not counted), byte-for-byte restore, owner
+      # green again. The evidence file is uploaded whether or not it passes.
       - name: Visual-sharing clean-baseline mutation gate
         working-directory: demos/shamir-gate
         run: npm run test:mutations
+
+      - name: Upload mutation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-evidence
+          path: demos/shamir-gate/mutation-evidence.json
+          if-no-files-found: error
 
       - name: Build
         working-directory: demos/shamir-gate

@@ -1,160 +1,281 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+// Clean-baseline mutation gate for the visual-sharing exhibit.
+//
+// Fourteen recipes over `src/visual.ts` and `src/visual-ui.ts`. Until
+// 2026-10-27 this runner counted ANY non-zero exit of the two owned test files
+// as a kill, so a mutant that failed to compile, or a test run that crashed,
+// would have been reported as "caught". It now follows the fleet pattern
+// (Attestation Gate, Matsui Line, Residue Gate, Shelf Oracle): for every recipe
+// it proves, in order,
+//
+//   1. the unmodified copy passes the WHOLE unit suite and builds,
+//   2. the named owning test is green on the unmodified copy,
+//   3. the patch produces a NON-EMPTY source change and the production bundle
+//      hash moves (a mutation the build never picked up proves nothing),
+//   4. the named owning test goes RED on a test failure -- a timeout, a crash,
+//      a missing module or a type error is NOT a kill,
+//   5. the source is restored byte for byte, the bundle hash returns to the
+//      baseline, and the owning test is green again.
+//
+// Owners were chosen from observed kills, not from prose: each recipe was
+// applied and the two owned specs run with the JSON reporter, and the owner
+// is one of the tests that failed with an assertion. Eleven are owned by
+// `src/visual.test.ts` and three by the jsdom smoke test in
+// `src/ui-smoke.test.ts`.
+//
+// Run from demos/shamir-gate (or anywhere; the script changes to its package):
+//   node scripts/visual-mutations.mjs [mutation name]
+
+import { createHash } from 'node:crypto';
+import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { stripVTControlCharacters } from 'node:util';
 import process from 'node:process';
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const derivedNpmCli = join(process.execPath, '..', '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js');
-const npmCli = process.env.npm_execpath && existsSync(process.env.npm_execpath)
-  ? process.env.npm_execpath
-  : derivedNpmCli;
-const testArgs = [
-  npmCli,
-  'exec',
-  '--',
-  'vitest',
-  'run',
-  'src/visual.test.ts',
-  'src/ui-smoke.test.ts',
-];
+process.chdir(join(dirname(fileURLToPath(import.meta.url)), '..'));
+
+const VISUAL = 'src/visual.ts';
+const VISUAL_UI = 'src/visual-ui.ts';
+const VISUAL_SPEC = 'src/visual.test.ts';
+const SMOKE_SPEC = 'src/ui-smoke.test.ts';
+
+const unit = (spec, test) => ({ runner: 'vitest', spec, test });
+const SMOKE_OWNER = 'generates, reconstructs, proves full distributions, runs controls, and retires stale results';
 
 const mutations = [
   {
     name: 'white and black share-2 rules swapped',
-    file: 'src/visual.ts',
-    from: 'share2: source === 0 ? [...pattern] as Block : complementBlock(pattern),',
-    to: 'share2: source === 1 ? [...pattern] as Block : complementBlock(pattern),',
+    file: VISUAL,
+    anchor: 'share2: source === 0 ? [...pattern] as Block : complementBlock(pattern),',
+    replacement: 'share2: source === 1 ? [...pattern] as Block : complementBlock(pattern),',
+    ...unit(VISUAL_SPEC, 'uses identical rows for white and complementary rows for black'),
   },
   {
     name: 'physical stack changed from OR to XOR',
-    file: 'src/visual.ts',
-    from: '? (bit | share2[rowIndex][columnIndex]) as Bit',
-    to: '? (bit ^ share2[rowIndex][columnIndex]) as Bit',
+    file: VISUAL,
+    anchor: '? (bit | share2[rowIndex][columnIndex]) as Bit',
+    replacement: '? (bit ^ share2[rowIndex][columnIndex]) as Bit',
+    ...unit(VISUAL_SPEC, 'draws independently for every pixel and round-trips solely from the shares'),
   },
   {
     name: 'basis admits a weight-one pattern',
-    file: 'src/visual.ts',
-    from: '  [0, 0, 1, 1],',
-    to: '  [0, 0, 0, 1],',
+    file: VISUAL,
+    anchor: '  [0, 0, 1, 1],',
+    replacement: '  [0, 0, 0, 1],',
+    ...unit(VISUAL_SPEC, 'enumerates exactly the six distinct weight-two patterns in canonical order'),
   },
   {
     name: 'one of six pattern outcomes removed',
-    file: 'src/visual.ts',
-    from: '  [1, 1, 0, 0],\n',
-    to: '',
+    file: VISUAL,
+    anchor: '  [1, 1, 0, 0],\n',
+    replacement: '',
+    ...unit(VISUAL_SPEC, 'enumerates exactly the six distinct weight-two patterns in canonical order'),
   },
   {
     name: 'uniform rejection sampler replaced with byte modulo six',
-    file: 'src/visual.ts',
-    from: 'const value = await draw(0n, BigInt(VISUAL_PATTERNS.length));',
-    to: 'const value = (await draw(0n, 256n)) % BigInt(VISUAL_PATTERNS.length);',
+    file: VISUAL,
+    anchor: 'const value = await draw(0n, BigInt(VISUAL_PATTERNS.length));',
+    replacement: 'const value = (await draw(0n, 256n)) % BigInt(VISUAL_PATTERNS.length);',
+    ...unit(VISUAL_SPEC, 'uses rejection sampling through randomBigInt rather than byte modulo six'),
   },
   {
     name: 'one mask reused across the image',
-    file: 'src/visual.ts',
-    from: 'const patternIndex = await samplePatternIndex(draw);',
-    to: 'const patternIndex = patternIndices[0] ?? await samplePatternIndex(draw);',
+    file: VISUAL,
+    anchor: 'const patternIndex = await samplePatternIndex(draw);',
+    replacement: 'const patternIndex = patternIndices[0] ?? await samplePatternIndex(draw);',
+    ...unit(VISUAL_SPEC, 'draws independently for every pixel and round-trips solely from the shares'),
   },
   {
     name: 'share 2 keyed by a pattern bit instead of the source pixel',
-    file: 'src/visual.ts',
-    from: 'const sourceBit = source[Math.floor(index / width)][index % width];',
-    to: 'const sourceBit = pattern[0];',
+    file: VISUAL,
+    anchor: 'const sourceBit = source[Math.floor(index / width)][index % width];',
+    replacement: 'const sourceBit = pattern[0];',
+    ...unit(VISUAL_SPEC, 'draws independently for every pixel and round-trips solely from the shares'),
   },
   {
     name: 'contrast difference hardcoded instead of derived',
-    file: 'src/visual.ts',
-    from: 'const difference = blackOrWeight - whiteOrWeight;',
-    to: 'const difference = 2;',
+    file: VISUAL,
+    anchor: 'const difference = blackOrWeight - whiteOrWeight;',
+    replacement: 'const difference = 2;',
+    ...unit(VISUAL_SPEC, 'derives pixel expansion and one-half contrast from the basis blocks'),
   },
   {
     name: 'mismatched share dimensions allowed to zip',
-    file: 'src/visual.ts',
-    from: 'if (left.width !== right.width || left.height !== right.height) {',
-    to: 'if (false && (left.width !== right.width || left.height !== right.height)) {',
+    file: VISUAL,
+    anchor: 'if (left.width !== right.width || left.height !== right.height) {',
+    replacement: 'if (false && (left.width !== right.width || left.height !== right.height)) {',
+    ...unit(VISUAL_SPEC, 'refuses missing, malformed and mismatched shares instead of truncating'),
   },
   {
     name: 'one missing share no longer refused at the boundary',
-    file: 'src/visual.ts',
-    from: 'if (!share1Input || !share2Input) {',
-    to: 'if (!share1Input && !share2Input) {',
+    file: VISUAL,
+    anchor: 'if (!share1Input || !share2Input) {',
+    replacement: 'if (!share1Input && !share2Input) {',
+    ...unit(VISUAL_SPEC, 'refuses missing, malformed and mismatched shares instead of truncating'),
   },
   {
     name: 'invalid pattern weight accepted',
-    file: 'src/visual.ts',
-    from: "  if (hammingWeight(pattern) !== 2) {\n    throw new Error('Every visual-share pattern must contain exactly two black subpixels.');\n  }",
-    to: '  if (false && hammingWeight(pattern) !== 2) {\n    throw new Error(\'Every visual-share pattern must contain exactly two black subpixels.\');\n  }',
+    file: VISUAL,
+    anchor: "  if (hammingWeight(pattern) !== 2) {\n    throw new Error('Every visual-share pattern must contain exactly two black subpixels.');\n  }",
+    replacement: "  if (false && hammingWeight(pattern) !== 2) {\n    throw new Error('Every visual-share pattern must contain exactly two black subpixels.');\n  }",
+    ...unit(VISUAL_SPEC, 'keeps either labeled share weight two for both source colors'),
   },
   {
     name: 'input change preserves stale derived verdicts',
-    file: 'src/visual-ui.ts',
-    from: "  placeholder('visual-share-2', 'Generate shares from the current source.');\n  clearDerivedResults();\n  setStatus(`${reason} Previous masks, reconstructions, distributions, and verdicts were retired.`);",
-    to: "  placeholder('visual-share-2', 'Generate shares from the current source.');\n  setStatus(`${reason} Previous masks, reconstructions, distributions, and verdicts were retired.`);",
+    file: VISUAL_UI,
+    anchor: "  placeholder('visual-share-2', 'Generate shares from the current source.');\n  clearDerivedResults();\n  setStatus(`${reason} Previous masks, reconstructions, distributions, and verdicts were retired.`);",
+    replacement: "  placeholder('visual-share-2', 'Generate shares from the current source.');\n  setStatus(`${reason} Previous masks, reconstructions, distributions, and verdicts were retired.`);",
+    ...unit(SMOKE_SPEC, SMOKE_OWNER),
   },
   {
     name: 'digital XOR mislabeled as physical stacking',
-    file: 'src/visual-ui.ts',
-    from: 'XOR is not physical transparency stacking:',
-    to: 'XOR is physical transparency stacking:',
+    file: VISUAL_UI,
+    anchor: 'XOR is not physical transparency stacking:',
+    replacement: 'XOR is physical transparency stacking:',
+    ...unit(SMOKE_SPEC, SMOKE_OWNER),
   },
   {
     name: 'marginals mislabeled as the full privacy proof',
-    file: 'src/visual-ui.ts',
-    from: 'same complete block distribution',
-    to: 'same per-subpixel marginals',
+    file: VISUAL_UI,
+    anchor: 'same complete block distribution',
+    replacement: 'same per-subpixel marginals',
+    ...unit(SMOKE_SPEC, SMOKE_OWNER),
   },
 ];
 
-function runOwnedTests() {
-  return spawnSync(process.execPath, testArgs, {
-    cwd: root,
-    env: { ...process.env, CI: '1' },
+const INFRASTRUCTURE = /No test files found|Cannot find module|Failed to load url|Unhandled Error|error TS\d+|Test timed out|Test timeout of/;
+
+function run(command, args, timeout) {
+  const child = spawnSync(command, args, {
     encoding: 'utf8',
-    timeout: 60_000,
+    env: { ...process.env, CI: '1', NO_COLOR: '1' },
+    maxBuffer: 32 * 1024 * 1024,
+    timeout,
   });
+  return {
+    ok: child.status === 0 && !child.error && !child.signal,
+    status: child.status,
+    signal: child.signal,
+    error: child.error,
+    output: stripVTControlCharacters(`${child.stdout ?? ''}${child.stderr ?? ''}`),
+  };
 }
 
-function failWithRun(label, run) {
-  console.error(`${label} FAILED`);
-  if (run.stdout) console.error(run.stdout);
-  if (run.stderr) console.error(run.stderr);
-  process.exit(1);
+function requirePass(result, label) {
+  if (!result.ok) {
+    throw new Error(`${label} failed (status ${result.status}, signal ${result.signal ?? 'none'}):\n${result.output.slice(-4000)}`);
+  }
 }
 
-const baseline = runOwnedTests();
-if (baseline.status !== 0) failWithRun('baseline: unmutated copy', baseline);
+/** `npm run build` runs the publish-request control, typechecks and bundles. */
+function build() {
+  requirePass(run('npm', ['run', 'build'], 300_000), 'build');
+}
+
+/** Hash of every emitted asset (JavaScript, CSS and source map). */
+function bundleHash() {
+  const dir = 'dist/assets';
+  const files = readdirSync(dir).filter((file) => statSync(join(dir, file)).isFile()).sort();
+  if (files.length === 0) throw new Error('build produced no assets');
+  const hash = createHash('sha256');
+  for (const file of files) hash.update(file).update(readFileSync(join(dir, file)));
+  return hash.digest('hex');
+}
+
+const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+function owningTest(mutation) {
+  return run('npx', ['vitest', 'run', mutation.spec, '-t', escapeRegex(mutation.test)], 300_000);
+}
+
+function requireNamedGreen(result, mutation, label) {
+  requirePass(result, label);
+  if (!/Tests\s+1 passed\b/.test(result.output) || /\d+ failed\b/.test(result.output)) {
+    throw new Error(`${label} did not execute exactly one passing test:\n${result.output.slice(-3000)}`);
+  }
+}
+
+function requireNamedRed(result, mutation) {
+  if (result.ok) throw new Error(`${mutation.name}: mutation SURVIVED its owning test`);
+  if (INFRASTRUCTURE.test(result.output)) {
+    throw new Error(`${mutation.name}: an infrastructure failure or timeout is not a kill:\n${result.output.slice(-3000)}`);
+  }
+  if (!result.output.includes(mutation.test)) {
+    throw new Error(`${mutation.name}: the failure did not name its owning test:\n${result.output.slice(-3000)}`);
+  }
+  if (!/Tests\s+1 failed\b/.test(result.output)) {
+    throw new Error(`${mutation.name}: the owning test did not fail exactly once:\n${result.output.slice(-3000)}`);
+  }
+  // A kill is a test FAILURE: an expect() assertion, or the code under test
+  // throwing into the test body. Both are reported as failed tests; what is
+  // excluded is everything the INFRASTRUCTURE pattern names above.
+}
+
+const requested = process.argv[2];
+const selected = requested ? mutations.filter((mutation) => mutation.name === requested) : mutations;
+if (selected.length === 0) throw new Error(`unknown mutation: ${requested}`);
+
+const files = [...new Set(selected.map((mutation) => mutation.file))];
+if (run('git', ['diff', '--quiet', 'HEAD', '--', ...files], 60_000).status !== 0) {
+  throw new Error('commit the mutated source files before replaying mutations; the harness restores from disk, not from git');
+}
+
+build();
+const baseline = bundleHash();
+// The WHOLE unit suite: a baseline scoped to the mutated files would stay green
+// while a mutation broke something elsewhere, and the restore control at the
+// end would agree with it.
+requirePass(run('npx', ['vitest', 'run'], 600_000), 'unmutated unit baseline');
 console.log('baseline: unmutated copy PASSES');
 
-let caught = 0;
-for (const mutation of mutations) {
-  const path = join(root, mutation.file);
-  const original = readFileSync(path, 'utf8');
-  const occurrences = original.split(mutation.from).length - 1;
-  if (occurrences !== 1) {
-    console.error(`mutation setup FAILED: ${mutation.name} matched ${occurrences} times`);
-    process.exit(1);
+const evidence = [];
+for (const [index, mutation] of selected.entries()) {
+  const original = readFileSync(mutation.file, 'utf8');
+  if (original.split(mutation.anchor).length !== 2) {
+    throw new Error(`${mutation.name}: the anchor must occur exactly once in ${mutation.file}`);
   }
+  requireNamedGreen(owningTest(mutation), mutation, `${mutation.name}: named baseline`);
+  let record;
   try {
-    writeFileSync(path, original.replace(mutation.from, mutation.to));
-    const run = runOwnedTests();
-    if (run.status === 0) {
-      console.error(`SURVIVED: ${mutation.name}`);
-      process.exitCode = 1;
-    } else {
-      caught += 1;
-      console.log(`caught: ${mutation.name}`);
-    }
+    const changed = original.replace(mutation.anchor, mutation.replacement);
+    if (changed === original) throw new Error(`${mutation.name}: the patch changed nothing`);
+    writeFileSync(mutation.file, changed);
+    const diff = run('git', ['diff', '--no-ext-diff', '--', mutation.file], 60_000);
+    if (diff.output.trim() === '') throw new Error(`${mutation.name}: the source diff was empty`);
+    build();
+    const mutant = bundleHash();
+    if (mutant === baseline) throw new Error(`${mutation.name}: the production bundle did not change`);
+    const red = owningTest(mutation);
+    requireNamedRed(red, mutation);
+    record = {
+      name: mutation.name,
+      file: mutation.file,
+      runner: mutation.runner,
+      spec: mutation.spec,
+      owningTest: mutation.test,
+      baselineGreen: true,
+      sourceDiffNonEmpty: true,
+      baselineBundle: baseline,
+      mutantBundle: mutant,
+      bundleMoved: true,
+      owningTestRed: true,
+      failureExcerpt: red.output.split('\n').filter((line) => /expect|Error|✗|×|FAIL/.test(line)).slice(0, 6),
+    };
+    console.log(`caught ${index + 1}/${selected.length}: ${mutation.name} -> ${mutation.test}`);
   } finally {
-    writeFileSync(path, original);
+    writeFileSync(mutation.file, original);
+    if (readFileSync(mutation.file, 'utf8') !== original) {
+      throw new Error(`${mutation.name}: source was not restored byte for byte`);
+    }
+    build();
+    if (bundleHash() !== baseline) throw new Error(`${mutation.name}: restored bundle differs from the baseline`);
   }
-  if (readFileSync(path, 'utf8') !== original) {
-    console.error(`restoration FAILED: ${mutation.name}`);
-    process.exit(1);
-  }
-  if (process.exitCode) process.exit(process.exitCode);
+  requireNamedGreen(owningTest(mutation), mutation, `${mutation.name}: restored baseline`);
+  record.restoredGreen = true;
+  evidence.push(record);
+  writeFileSync('mutation-evidence.json', `${JSON.stringify(evidence, null, 2)}\n`);
 }
 
-const restored = runOwnedTests();
-if (restored.status !== 0) failWithRun('restored baseline', restored);
-console.log(`all ${caught} mutation(s) caught`);
+requirePass(run('npx', ['vitest', 'run'], 600_000), 'restored unit baseline');
+console.log(`all ${evidence.length} of ${selected.length} mutation(s) caught; sources and production bundle restored byte for byte`);

@@ -61,7 +61,7 @@ npm run dev        # start the dev server
 npm test           # run the GF(p) + AES test suite
 npm run build      # typecheck, then build for production
 npm run test:e2e   # Playwright: functional claims + WCAG 2.1 AA gate
-npm run test:mutations # clean baseline + 14 focused visual-sharing mutations
+npm run test:mutations # 14 visual-sharing mutations, each killed by a named test
 ```
 
 `npm run test:e2e` (and `test:a11y`, the same run) builds first and serves the
@@ -92,8 +92,18 @@ decrypt flow (`math`/`crypto` specs), the share-validation failure taxonomy (`sh
 spec), all six visual patterns and their complete distributions, exact OR/XOR behavior,
 rejection sampling, malformed-input refusals and negative controls (`visual` spec), and a
 jsdom UI smoke test (`ui-smoke` spec) that mounts every tab and exercises the prediction,
-proof-lab, visual-sharing, and failure-lab wiring. The hosted clean-baseline mutation gate
-kills 14 named changes and reruns the restored baseline.
+proof-lab, visual-sharing, and failure-lab wiring.
+
+**Mutation gate.** `scripts/visual-mutations.mjs` replays 14 recipes over `visual.ts` and
+`visual-ui.ts` against a clean baseline, and a recipe counts as caught only when the whole
+unit suite and the build pass unmutated, its named owning test is green, the patch produces
+a non-empty diff and moves the production bundle hash, that one test then fails (a timeout,
+a crash, a missing module or a type error is refused rather than counted), and the source
+and bundle are restored byte for byte with the owner green again. Owners were chosen from
+observed kills: eleven are tests in the `visual` spec and three are the smoke test that
+generates, reconstructs and retires stale results. It runs in `deploy.yml` ahead of the
+build and uploads `mutation-evidence.json`. Measured on 2026-10-27: 14 of 14 caught.
+`node scripts/visual-mutations.mjs "<name>"` replays one.
 
 ## Visual-sharing source and limits
 
