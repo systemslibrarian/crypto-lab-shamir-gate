@@ -113,3 +113,25 @@ describe('UI smoke — polynomial points table + viz toggle exist', () => {
     expect($('poly-points')).not.toBeNull();
   });
 });
+
+describe('real-world cards: the Bitcoin entry is about signatures, not shares', () => {
+  // The cold-storage card said "Bitcoin multisig wallets use threshold schemes
+  // related to Shamir." They do not. BIP 11's m-of-n OP_CHECKMULTISIG output is
+  // "redeemed using a standard scriptSig: OP_0 ...signatures...": m separate
+  // ECDSA signatures from m separate keys, with nothing split or reconstructed.
+  // The real Shamir use in wallet backup is SLIP-0039, "Shamir's
+  // Secret-Sharing for Mnemonic Codes", which splits a BIP-32 master secret.
+  const cards = () => $('tab-rw')!.textContent ?? '';
+
+  it('does not call Bitcoin multisig a threshold scheme related to Shamir', () => {
+    expect(cards()).not.toContain('threshold schemes related to Shamir');
+  });
+
+  it('says what multisig is, and points the Shamir claim at SLIP-0039', () => {
+    const text = cards().replace(/\s+/g, ' ');
+    expect(text).toContain('Bitcoin multisig is NOT secret sharing');
+    expect(text).toContain('OP_CHECKMULTISIG output (BIP 11)');
+    expect(text).toContain('m separate ECDSA signatures from m separate keys');
+    expect(text).toContain('SLIP-0039');
+  });
+});

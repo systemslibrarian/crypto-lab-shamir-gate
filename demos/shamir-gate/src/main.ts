@@ -1413,7 +1413,7 @@ function renderShell(): void {
          'Major CAs (including root CAs trusted by browsers) split their root private key using Shamir. Key ceremonies require multiple key holders in a secure facility to reconstruct the CA key.',
          ''],
         ['04', 'Cryptocurrency Cold Storage',
-         'Bitcoin multisig wallets use threshold schemes related to Shamir. Some cold storage protocols split the seed phrase using SSS so no single backup location holds the full secret.',
+         'Bitcoin multisig is NOT secret sharing: an m-of-n OP_CHECKMULTISIG output (BIP 11) is redeemed by m separate ECDSA signatures from m separate keys, and no key is ever split or reassembled. The genuine Shamir use here is seed backup — SLIP-0039, “Shamir’s Secret-Sharing for Mnemonic Codes”, splits a BIP-32 master secret into shares so no single backup location holds the whole thing.',
          ''],
         ['05', 'Nuclear Launch Authorization',
          'The two-person integrity rule for nuclear launch codes is conceptually equivalent to t=2 Shamir — two separate key holders must cooperate to authorize launch. Cryptographic implementations use formal SSS.',
