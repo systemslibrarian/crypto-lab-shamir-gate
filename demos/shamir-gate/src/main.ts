@@ -70,13 +70,14 @@ function serializeShare(x: bigint, y: bigint, p: bigint): string {
 interface GateState {
   n: number;
   t: number;
+  generatedByteLength: number;
   genT: number; // threshold actually used at the last generation
   shares: Array<{ x: bigint; y: bigint }>;
   prime: bigint;
   submittedCount: number;
 }
 
-const gate: GateState = { n: 5, t: 3, genT: 3, shares: [], prime: 257n, submittedCount: 0 };
+const gate: GateState = { n: 5, t: 3, genT: 3, generatedByteLength: 0, shares: [], prime: 257n, submittedCount: 0 };
 
 function updateLock(submitted: number, threshold: number): void {
   const svg = el('lock-svg');
@@ -114,6 +115,12 @@ function initGateTab(): void {
   const tVal = el('gate-t-val');
   const nVal = el('gate-n-val');
 
+  function clearGateResult(): void {
+    const result = el('gate-result');
+    result.textContent = '';
+    result.className = 'result-box';
+  }
+
   const syncSliders = () => {
     gate.t = parseInt(tSlider.value);
     gate.n = parseInt(nSlider.value);
@@ -121,6 +128,7 @@ function initGateTab(): void {
     tVal.textContent = String(gate.t);
     nVal.textContent = String(gate.n);
     nSlider.min = String(gate.t);
+    clearGateResult();
     gate.submittedCount = 0;
     updateLock(0, gate.t);
     updateSlots(gate.n, 0);
@@ -131,16 +139,18 @@ function initGateTab(): void {
   syncSliders();
 
   el('gate-generate').addEventListener('click', async () => {
-    const secretText = (el<HTMLInputElement>('gate-secret').value || 'My Secret').trim();
-    const { value: secretInt, prime } = secretToInt(secretText);
-    gate.prime = prime;
+    const secretText = el<HTMLInputElement>('gate-secret').value || 'My Secret';
     gate.t = parseInt(tSlider.value);
     gate.n = parseInt(nSlider.value);
 
     try {
+      const { value: secretInt, prime } = secretToInt(secretText);
       const { shares, coefficients } = await generateShares(secretInt, gate.t, gate.n, prime);
+      gate.generatedByteLength = new TextEncoder().encode(secretText).length;
+      gate.prime = prime;
       gate.shares = shares;
       gate.genT = gate.t;
+      clearGateResult();
       gate.submittedCount = 0;
       updateLock(0, gate.t);
       updateSlots(gate.n, 0);
@@ -184,7 +194,13 @@ function initGateTab(): void {
       `;
       el('gate-meta').style.display = 'block';
     } catch (e: unknown) {
-      showResult('gate-result', `Error: ${(e as Error).message}`, 'error');
+      gate.shares = [];
+      gate.submittedCount = 0;
+      updateLock(0, gate.t);
+      updateSlots(gate.n, 0);
+      el('gate-meta').style.display = 'none';
+      el('gate-shares-display').style.display = 'none';
+      showResult('gate-result', `Split could not be generated: ${(e as Error).message}`, 'error');
     }
   });
 
@@ -207,20 +223,26 @@ function initGateTab(): void {
     const parsed = validation.shares;
     const p = validation.prime!;
     try {
+      if (gate.shares.length === 0) {
+        failReconstruct('Generate a split before testing its shares in this vault.');
+        return;
+      }
+      if (p !== gate.prime || parsed.some(s => !gate.shares.some(issued => issued.x === s.x && issued.y === s.y))) {
+        failReconstruct('These shares do not all match the current split. Use the shares issued by this vault.');
+        return;
+      }
       const secret = reconstructSecret(parsed.map(s => ({ x: s.x, y: s.y })), p);
-      const text = intToSecret(secret);
-      gate.submittedCount = Math.min(parsed.length, gate.n);
+      const text = intToSecret(secret, parsed.length >= gate.genT ? gate.generatedByteLength : 0);
+      gate.submittedCount = parsed.length;
       updateLock(gate.submittedCount, gate.genT);
-      updateSlots(gate.n, gate.submittedCount);
+      updateSlots(gate.shares.length, gate.submittedCount);
 
-      // Below threshold, Lagrange still returns *a* number — but it is not the
-      // secret. Surfacing this honestly is the core lesson: t−1 shares look just
-      // as confident as t shares, yet reveal nothing about the true value.
+      // A sub-threshold interpolation is one candidate, even when it happens to match.
       if (parsed.length < gate.genT) {
         showResult(
           'gate-result',
           `✗ Below threshold: ${parsed.length} of ${gate.genT} shares. ` +
-          `Interpolation yields "${text}" (integer: ${secret}) — but this is NOT the secret. ` +
+          `Interpolation yields "${text}" (integer: ${secret}). These shares cannot determine whether this candidate is the secret. ` +
           `Every possible secret is equally consistent with these shares. Add more shares.`,
           'error'
         );
@@ -235,9 +257,9 @@ function initGateTab(): void {
   // Prediction checkpoint: prime the learner before they try a sub-threshold set.
   el('gate-predict').appendChild(buildPrediction({
     question: 'You hold 2 of the 3 required shares and click Reconstruct. What happens?',
-    options: ['The exact secret appears', 'A wrong value appears, looking just as valid', 'An error: not enough shares'],
+    options: ['The exact secret appears', 'One candidate appears, but the shares cannot identify the secret', 'An error: not enough shares'],
     correct: 1,
-    explain: 'Lagrange interpolation always returns <i>a</i> number; below the threshold it is simply the wrong one, with nothing to flag it. Try it above with 2 shares and watch.',
+    explain: 'With two distinct shares, interpolation returns one candidate. It can match by chance. Every possible secret fits those same shares.',
   }));
 }
 
@@ -982,7 +1004,7 @@ function initFailureLab(): void {
         return {
           category: 'mathematical',
           detail: `Two of three shares interpolate to ${got}, but the real secret is 42. ` +
-            `No error is raised — t−1 shares produce a confident, wrong answer. The threshold is the whole point.`,
+            `This example gives a different value. Below threshold, the candidate can also match by chance.`,
         };
       },
     },
@@ -1082,7 +1104,7 @@ function renderShell(): void {
   <div class="cl-hero-main">
     <h1 class="cl-hero-title">Shamir Gate</h1>
     <p class="cl-hero-sub">Shamir's Secret Sharing · t-of-n · GF(p) · Lagrange</p>
-    <p class="cl-hero-desc">Split a secret into n shares as points on a degree-(t−1) polynomial over GF(p), then watch t of them reconstruct it via Lagrange interpolation while fewer stay locked.</p>
+    <p class="cl-hero-desc">Split a secret into n shares as points on a polynomial of degree at most t−1 over GF(p), then watch t of them reconstruct it via Lagrange interpolation while fewer stay locked.</p>
   </div>
   <aside class="cl-hero-why" aria-label="Why it matters">
     <span class="cl-hero-why-label">WHY IT MATTERS</span>

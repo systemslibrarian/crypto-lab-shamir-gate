@@ -14,6 +14,12 @@ import {
 import { generateShares, reconstructSecret } from './math';
 
 describe('text ↔ integer encoding', () => {
+  it('preserves leading zero bytes, whitespace and the Unicode BOM when given the original length', () => {
+    for (const input of ['\0A', '\0', ' A ', '\uFEFFtext']) {
+      const { value } = secretToInt(input);
+      expect(intToSecret(value, new TextEncoder().encode(input).length)).toBe(input);
+    }
+  });
   it('round-trips UTF-8 text through the field encoding', () => {
     for (const text of ['My Secret', 'hello world', 'café ☕', '1 Cor 10:31']) {
       const { value, prime } = secretToInt(text);

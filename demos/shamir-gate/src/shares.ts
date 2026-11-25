@@ -57,8 +57,8 @@ export function parseShareLines(text: string): { parsed: ParsedShare[]; badLines
  *
  * Returns ok:false with a category + message for the hard failures a learner can
  * trigger. NOTE: "below threshold" is intentionally NOT a hard failure here —
- * interpolation still returns a (wrong) value, and surfacing that confidently-wrong
- * answer is itself the central lesson. Callers compare share count to the threshold.
+ * interpolation still returns one candidate, which the shares cannot identify as
+ * the original secret. Callers compare share count to the threshold.
  */
 export function validateShareSet(text: string): ShareValidation {
   const { parsed, badLines } = parseShareLines(text);

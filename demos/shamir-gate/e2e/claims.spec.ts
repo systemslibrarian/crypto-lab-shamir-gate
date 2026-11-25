@@ -184,11 +184,15 @@ test('gate: the published polynomial passes through the shares it listed, and t 
   await expect(page.locator('#share-slots .share-slot.filled')).toHaveCount(t);
 });
 
-test('gate: below the threshold the page prints the value Lagrange really gives, and calls it wrong', async ({
+test('gate: below the threshold the page prints a possible secret even when it equals the generated secret', async ({
   page,
 }) => {
   await page.locator('#btn-gate').click();
   await page.locator('#gate-secret').fill('Hello');
+  // A zero leading coefficient is a legal draw in Shamir sharing.
+  await page.evaluate(() => {
+    Object.defineProperty(crypto, 'getRandomValues', { value: (bytes: Uint8Array) => bytes.fill(0) });
+  });
   await page.locator('#gate-generate').click();
   await expect(page.locator('#gate-meta')).toBeVisible();
 
@@ -205,14 +209,14 @@ test('gate: below the threshold the page prints the value Lagrange really gives,
   await expect(page.locator('#gate-result')).toHaveClass(/error/);
   const result = await text(page, '#gate-result');
   expect(result).toContain(`✗ Below threshold: ${t - 1} of ${t} shares`);
-  expect(result).toContain('but this is NOT the secret');
+  expect(result).toContain('cannot determine whether this candidate is the secret');
   expect(result).toContain('Every possible secret is equally consistent');
 
   // The printed value is the genuine sub-threshold interpolation — and it is
-  // not the secret. Both halves of the lesson, checked.
+  // equal to the secret for this draw. The available shares cannot certify that.
   const yielded = big(result, /\(integer: (\d+)\)/, 'sub-threshold value');
   expect(yielded).toBe(lagrangeAt0(subset, subset[0]!.p));
-  expect(yielded).not.toBe(secret);
+  expect(yielded).toBe(secret);
 
   // The vault stays shut and counts what it actually got.
   await expect(page.locator('#lock-label')).toHaveText('🔒 LOCKED');
@@ -222,6 +226,30 @@ test('gate: below the threshold the page prints the value Lagrange really gives,
     `Vault locked — ${t - 1} of ${t} shares collected`,
   );
   await expect(page.locator('#share-slots .share-slot.filled')).toHaveCount(t - 1);
+});
+
+test('a new split retires the previous result and old shares cannot unlock it', async ({ page }) => {
+  await page.locator('#btn-gate').click();
+  const generate = async (secret: string) => {
+    await page.locator('#gate-secret').fill(secret);
+    await page.locator('#gate-generate').click();
+    await expect(page.locator('#gate-meta')).toContainText('Secret as integer: ' + secret.charCodeAt(0));
+    return (await gateShares(page)).slice(0, 3).join('\n');
+  };
+  const submit = async (text: string) => {
+    await page.locator('#gate-shares-input').fill(text);
+    await page.locator('#gate-reconstruct').click();
+  };
+  const first = await generate('A');
+  await submit(first);
+  await expect(page.locator('#lock-label')).toContainText('UNLOCKED');
+  const second = await generate('B');
+  await expect(page.locator('#gate-result')).toBeEmpty();
+  await submit(first);
+  await expect(page.locator('#gate-result')).toContainText('do not all match the current split');
+  await expect(page.locator('#lock-label')).toHaveText('🔒 LOCKED');
+  await submit(second);
+  await expect(page.locator('#gate-result')).toContainText('Secret recovered: "B"');
 });
 
 test('gate: a rejected share set names the fault and takes the vault back down', async ({

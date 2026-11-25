@@ -37,15 +37,16 @@ export function secretToInt(text: string): { value: bigint; prime: bigint } {
 /**
  * Convert a reconstructed BigInt back to the original text.
  */
-export function intToSecret(value: bigint): string {
-  if (value === 0n) return '';
+export function intToSecret(value: bigint, byteLength = 0): string {
   const bytes: number[] = [];
   let v = value;
   while (v > 0n) {
     bytes.unshift(Number(v & 0xffn));
     v >>= 8n;
   }
-  return new TextDecoder().decode(new Uint8Array(bytes));
+  const padded = new Uint8Array(Math.max(byteLength, bytes.length));
+  padded.set(bytes, padded.length - bytes.length);
+  return new TextDecoder('utf-8', { ignoreBOM: true }).decode(padded);
 }
 
 /**

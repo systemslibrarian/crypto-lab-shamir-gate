@@ -34,6 +34,8 @@ digital XOR comparison separate from transparency stacking.
 
 Build a `t`-of-`n` split over a prime field, watch the polynomial and Lagrange interpolation reconstruct the secret from any `t` shares, and see why `t-1` shares reveal nothing — the visualizer shows multiple polynomials consistent with the same under-threshold shares, each pointing to a different secret. A worked example also splits an AES-256 key and re-encrypts once enough shares are combined.
 
+In the Gate, a sub-threshold interpolation gives one possible secret. It can equal the original by chance. The classroom vault checks submitted shares against its current generated split before displaying a recovery. Standalone Shamir shares carry no such provenance check.
+
 ## What Can Go Wrong
 
 - **Duplicate or reused share coordinates** — every share must sit at a distinct, non-zero evaluation point `x`; reusing an `x` (or leaking the secret's point `x=0`) breaks reconstruction or the secret outright.
