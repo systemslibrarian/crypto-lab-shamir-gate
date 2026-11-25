@@ -23,7 +23,6 @@ export const VISUAL_PATTERNS: readonly Block[] = [
   [0, 1, 1, 0],
   [1, 0, 0, 1],
   [1, 0, 1, 0],
-  [1, 1, 0, 0],
 ] as const;
 
 export interface VisualSharing {

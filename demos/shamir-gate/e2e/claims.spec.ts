@@ -291,6 +291,9 @@ test('gate: a rejected share set names the fault and takes the vault back down',
     await expect(page.locator('#lock-label')).toHaveText('🔓 UNLOCKED');
 
     await page.locator('#gate-shares-input').fill(c.input);
+    await expect(page.locator('#gate-result'), 'editing retires the recovered plaintext').toBeEmpty();
+    await expect(page.locator('#lock-label'), 'edited shares require a fresh reconstruction').toHaveText('🔒 LOCKED');
+    await expect(page.locator('#share-slots .share-slot.filled')).toHaveCount(0);
     await page.locator('#gate-reconstruct').click();
 
     await expect(page.locator('#gate-result'), c.name).toHaveClass(/error/);

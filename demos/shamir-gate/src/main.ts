@@ -204,6 +204,13 @@ function initGateTab(): void {
     }
   });
 
+  el('gate-shares-input').addEventListener('input', () => {
+    clearGateResult();
+    gate.submittedCount = 0;
+    updateLock(0, gate.shares.length ? gate.genT : gate.t);
+    updateSlots(gate.shares.length || gate.n, 0);
+  });
+
   el('gate-reconstruct').addEventListener('click', () => {
     // A rejected submission collects nothing. Without resetting the vault the
     // lock kept the previous run's 🔓 UNLOCKED verdict on screen right beside a
